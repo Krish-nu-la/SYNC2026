@@ -91,14 +91,23 @@
   .hud {
     position: fixed; inset: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr) 320px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 16px;
     padding: 0 16px 16px;
-    max-width: 1368px; margin: 0 auto;
+    max-width: 1440px; margin: 0 auto;
     pointer-events: none;
   }
   .hud > * { pointer-events: auto; }
+
+  /* The base .wordmark rule was lost in the layout restructure, leaving only a
+     media-query override — which is why NETRA had stopped being cyan. */
+  .wordmark {
+    font-family: var(--ff-display); font-weight: 900; font-size: 26px;
+    letter-spacing: -0.025em; line-height: 1; margin: 0; white-space: nowrap;
+    color: var(--text);
+  }
+  .wordmark span { color: var(--safe); }
 
   .strip {
     grid-column: 1 / -1;
@@ -106,8 +115,47 @@
     height: 56px; flex-wrap: nowrap; overflow: hidden;
     background: none; border: none; padding: 0; position: static;
   }
-  .col-main { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
-  .rail-right { display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  .col-main { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
+
+  /* Left rail restored. Rainfall, the citizen report control, the legend and
+     the drainage note all lived here before the Figma pass; the frame has no
+     left column, so they had scattered into the map and scrubber. */
+  .rail-left {
+    grid-column: 1; grid-row: 2;
+    display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--hairline);
+    overscroll-behavior: contain;
+  }
+  .rail-left::-webkit-scrollbar { width: 7px; }
+  .rail-left::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
+  .rail-left .block { padding: 14px 15px; border-bottom: 1px solid var(--hairline); }
+  .rail-left .block:last-child { border-bottom: none; }
+  .rail-left .block-title { font-size: 10px; letter-spacing: .15em; margin-bottom: 10px; }
+  .rail-left .presets { margin-top: 10px; }
+  .rain-readout { display: flex; align-items: baseline; gap: 6px; }
+  .rain-value { font-family: var(--ff-display); font-weight: 800; font-size: 34px;
+                line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .rain-unit { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .rain-name { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
+               letter-spacing: .05em; text-transform: uppercase; color: var(--safe); margin: 5px 0 2px; }
+  .btn-report-rail {
+    width: 100%; padding: 11px; border: 1px solid #A78BFA; border-radius: 2px; color: #A78BFA;
+    font-family: var(--ff-display); font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; font-weight: 700;
+    transition: background .16s var(--ease-out), color .16s var(--ease-out);
+  }
+  .btn-report-rail:hover,
+  .btn-report-rail[aria-pressed="true"] { background: #A78BFA; color: var(--ink); }
+  .rail-left .btn-report-kb, .rail-left .btn-clear-reports {
+    position: static; width: 100%; margin-top: 7px; background: none;
+  }
+  .rail-left .disclosure-btn { width: 100%; justify-content: space-between; }
+  .rail-left .disclosure-body { position: static; width: auto; box-shadow: none;
+                                border: none; padding: 12px 0 0; background: none; }
+  .attrib-note { font-size: 10px; color: var(--muted); line-height: 1.55; margin: 0; }
+  .attrib-note strong { color: var(--text); font-weight: 600; }
+  .rail-right { grid-column: 3; grid-row: 2;
+                display: flex; flex-direction: column; min-height: 0; overflow: hidden;
                 background: var(--surface); border: 1px solid var(--hairline);
                 position: static; width: auto; }
   /* Two independently scrolling panes, so the alert feed can never be pushed
@@ -121,7 +169,7 @@
 
   /* ---- hero: Figma 1:5, 135px tall, 24px sides / 16px top-bottom ---- */
   .hero-card {
-    flex: 0 0 auto; height: 135px;
+    flex: 0 0 auto; min-height: 135px;
     background: #101A24;
     border: 1px solid var(--ac, #FFC93C);
     padding: 16px 24px;
@@ -135,14 +183,14 @@
   .hero-state { font-family: var(--ff-display); font-weight: 900; font-size: 52px;
                 line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, #FFC93C);
                 transition: color 300ms var(--ease-out); white-space: nowrap; }
-  .hero-action { margin: 0; font-size: 14px; line-height: 1.35; color: #EAF2F8;
-                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: #EAF2F8;
+                 display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                 overflow: hidden; }
   .hero-prep { color: var(--muted); }
   .hero-prep b { color: #EAF2F8; font-weight: 600; }
 
   /* ---- row: citizen 472 + the rainfall slot beside it ---- */
-  .row-two { flex: 0 0 auto; display: grid; grid-template-columns: 472px minmax(0,1fr);
-             gap: 16px; height: 95px; }
+  .row-two { flex: 0 0 auto; display: block; height: 95px; }
   .nb-card {
     background: #101A24; border: 2px solid #A78BFA;
     padding: 14px 20px;
@@ -200,7 +248,7 @@
 
   /* ---- scrubber: Figma 1:15, 60px tall ---- */
   .scrub {
-    flex: 0 0 auto; position: relative;
+    grid-column: 1 / -1; grid-row: 3; position: relative;
     height: 60px; background: var(--surface); border: 1px solid var(--hairline);
     display: flex; align-items: center; gap: 16px; padding: 0 18px;
   }
@@ -745,6 +793,68 @@
     </nav>
   </header>
 
+  <!-- ===== left rail ===== -->
+  <aside class="rail-left">
+    <div class="block">
+      <h2 class="block-title">Rainfall scenario</h2>
+      <div class="rain-readout">
+        <span class="rain-value" id="rain-value">62</span>
+        <span class="rain-unit">mm/hr</span>
+      </div>
+      <div class="rain-name" id="rain-name">Heavy</div>
+      <input type="range" id="rain" min="0" max="120" step="1" value="62"
+             aria-label="Rainfall intensity in millimetres per hour">
+      <div class="presets" id="presets" role="group" aria-label="Rainfall presets"></div>
+    </div>
+
+    <div class="block">
+      <h2 class="block-title">Citizen report</h2>
+      <button class="btn-report-rail" id="btn-report" aria-pressed="false">Report waterlogging</button>
+      <button class="btn-report-kb" id="btn-report-zone" hidden></button>
+      <button class="btn-clear-reports" id="btn-clear-reports" hidden>Clear reports</button>
+      <p class="attrib-note" style="margin-top:9px">Ground truth from the street.
+        Drops a pin and nudges nearby zone risk — client-side only, never sent anywhere.</p>
+    </div>
+
+    <div class="block">
+      <button class="disclosure-btn" id="legend-btn" aria-expanded="false" aria-controls="legend-body">
+        <span>Warning level (IMD)</span><span class="caret">▶</span></button>
+      <div class="disclosure-body" id="legend-body" hidden></div>
+    </div>
+
+    <div class="block">
+      <button class="disclosure-btn" id="prov-btn" aria-expanded="false" aria-controls="prov-body">
+        <span>Data provenance</span><span class="caret">▶</span></button>
+      <div class="disclosure-body prov-body" id="prov-body" hidden>
+        <dl>
+          <dt>Real and citable</dt>
+          <dd>Zone list and coordinates from reporting on actual waterlogging. The TP and
+          Mullassery canal routes and their documented failure modes. The IMD warning
+          scale and the term “nowcast”.</dd>
+          <dt>Estimated — not sourced</dt>
+          <dd>Population per zone: approximations, <em>not</em> census figures.
+          Susceptibility is authored to be plausible, not derived from a DEM.</dd>
+          <dt>Does not exist</dt>
+          <dd>No live rainfall feed, no trained model. Every figure comes from a
+          deterministic simulation on this device. Nothing is deployed.</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2 class="block-title">Drainage</h2>
+      <p class="attrib-note">
+        The <strong>Thevara–Perandoor Canal</strong> is Kochi Corporation's main drainage
+        artery — silted, encroached, and backs up at high tide. The
+        <strong>Mullassery Canal</strong> has a reverse slope, pushing water into the TP
+        Canal rather than away from it. Routes approximate, from Kerala Irrigation
+        Department material.
+      </p>
+      <p class="attrib-note" style="margin-top:9px; font-size:9px">
+        © OpenStreetMap contributors · © CARTO</p>
+    </div>
+  </aside>
+
   <!-- ===== content column ===== -->
   <div class="col-main">
 
@@ -765,14 +875,6 @@
         <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
       </section>
 
-      <section class="cond-card" aria-labelledby="cond-title">
-        <h2 class="cond-title" id="cond-title">Rainfall scenario
-          <span class="cond-read"><span class="num" id="rain-value">62</span> mm/hr
-          <b id="rain-name">Heavy</b></span></h2>
-        <input type="range" id="rain" min="0" max="120" step="1" value="62"
-               aria-label="Rainfall intensity in millimetres per hour">
-        <div class="presets" id="presets" role="group" aria-label="Rainfall presets"></div>
-      </section>
     </div>
 
     <!-- Figma 1:13 — Map · Kochi, 1000 wide. Extended to fill the gap the
@@ -782,44 +884,23 @@
       <div class="map-grade" aria-hidden="true"></div>
       <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
       <p class="map-notice" id="map-notice" role="status" hidden></p>
-      <button class="btn-report-map" id="btn-report" aria-pressed="false">Report waterlogging</button>
-      <button class="btn-report-kb" id="btn-report-zone" hidden></button>
-      <button class="btn-clear-reports" id="btn-clear-reports" hidden>Clear reports</button>
     </div>
 
+  </div>
+
     <!-- Figma 1:15 — Scrubber · Timeline, 1000x60 -->
-    <div class="scrub">
-      <span class="scrub-label">Horizon</span>
-      <span class="scrub-now" id="scrub-now">NOW</span>
-      <span class="scrub-mode" id="scrub-mode">observed</span>
-      <div class="scrub-track">
-        <div class="scrub-progress" id="scrub-progress" aria-hidden="true"></div>
-        <input type="range" id="scrub" min="0" max="4" step="1" value="0"
-               aria-label="Forecast horizon in minutes from now" aria-valuetext="Now, observed">
-        <div class="ticks" id="ticks"></div>
-      </div>
-      <button class="btn-run" id="btn-run"></button>
-      <div class="scrub-disc">
-        <button class="disclosure-btn" id="legend-btn" aria-expanded="false" aria-controls="legend-body">Legend</button>
-        <button class="disclosure-btn" id="prov-btn" aria-expanded="false" aria-controls="prov-body">Sources</button>
-      </div>
-      <button class="sweep-cta" id="sweep-cta" hidden></button>
-      <div class="disclosure-body" id="legend-body" hidden></div>
-      <div class="disclosure-body prov-body" id="prov-body" hidden>
-        <dl>
-          <dt>Real and citable</dt>
-          <dd>Zone list and coordinates from reporting on actual waterlogging. The
-          Thevara–Perandoor and Mullassery canal routes and their documented failure
-          modes. The IMD warning scale and the term “nowcast”.</dd>
-          <dt>Estimated — not sourced</dt>
-          <dd>Population per zone: approximations, <em>not</em> census figures.
-          Susceptibility is authored to be plausible, not derived from a DEM.</dd>
-          <dt>Does not exist</dt>
-          <dd>No live rainfall feed, no trained model. Every figure comes from a
-          deterministic simulation on this device. Nothing is deployed.</dd>
-        </dl>
-      </div>
+  <div class="scrub">
+    <span class="scrub-label">Horizon</span>
+    <span class="scrub-now" id="scrub-now">NOW</span>
+    <span class="scrub-mode" id="scrub-mode">observed</span>
+    <div class="scrub-track">
+      <div class="scrub-progress" id="scrub-progress" aria-hidden="true"></div>
+      <input type="range" id="scrub" min="0" max="4" step="1" value="0"
+             aria-label="Forecast horizon in minutes from now" aria-valuetext="Now, observed">
+      <div class="ticks" id="ticks"></div>
     </div>
+    <button class="btn-run" id="btn-run"></button>
+    <button class="sweep-cta" id="sweep-cta" hidden></button>
   </div>
 
   <!-- Figma 1:17 — Right Rail · Zones + Alerts, 320 wide -->
