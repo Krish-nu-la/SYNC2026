@@ -18,3 +18,7 @@ build/
 .env.*
 *.pem
 *.key
+
+# playwright / verification artefacts
+node_modules/
+package-lock.json

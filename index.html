@@ -43,7 +43,7 @@
     /* Deliberately unequal. An even grid is what made this read generic. */
     --rail-l: 244px;
     --rail-r: 356px;
-    --gap: 14px;
+    --gap: 16px;
     --strip-h: 76px;
 
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -126,8 +126,8 @@
     margin: 0;
     font-family: var(--ff-display);
     font-weight: 900;
-    font-size: 30px;
-    letter-spacing: -0.02em;
+    font-size: 28px;
+    letter-spacing: -0.025em;
     line-height: 1;
     white-space: nowrap;
   }
@@ -152,10 +152,11 @@
   }
 
   /* Statement numbers. These are the readout the whole console exists for. */
-  .strip-stats { display: flex; align-items: flex-end; gap: 30px; margin-left: auto; white-space: nowrap; }
+  .strip-stats { display: flex; align-items: flex-end; gap: 22px; margin-left: auto; white-space: nowrap; }
   .stat { display: flex; flex-direction: column; gap: 2px; }
   .stat-label {
-    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 500;
+    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    font-weight: 600; white-space: nowrap;
   }
   .stat-value {
     font-family: var(--ff-display); font-weight: 800;
@@ -191,18 +192,18 @@
   /* Right rail = fixed detail panel + two independently scrolling panes.
      Without this the 13-row zone list pushes the alert feed — and the
      dispatcher's Acknowledge action — below the fold on any laptop. */
-  .rail-detail { flex: 0 0 auto; }
   .rail-split { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
   .rail-pane {
     flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-    border-top: 1px solid var(--hairline);
+    border-top: 1px solid var(--hairline-2);
   }
   .rail-pane::-webkit-scrollbar { width: 7px; }
   .rail-pane::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
   .pane-title {
     position: sticky; top: 0; z-index: 1;
-    margin: 0; padding: 13px 16px 11px;
+    margin: 0; padding: 16px 16px 13px;
     background: var(--surface);
+    border-bottom: 1px solid var(--hairline);
   }
 
   .zd-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 7px; }
@@ -217,14 +218,20 @@
     transition: background .16s var(--ease-out), color .16s var(--ease-out);
   }
   .zd-dio:hover { background: var(--safe); color: var(--ink); }
-  .zone-row[aria-pressed="true"] { background: var(--surface-2); }
-  .zone-row[aria-pressed="true"] .zone-name { color: var(--safe); }
+  .zone-row { border-left: 3px solid transparent; }
+  .zone-row[aria-expanded="true"] { background: var(--surface-2); border-left-color: var(--safe); }
+  .zone-row[aria-expanded="true"] .zone-name { color: var(--safe); }
+  .zone-detail { padding: 2px 16px 15px; background: var(--surface-2);
+                 border-bottom: 1px solid var(--hairline); }
+  .zone-detail[hidden] { display: none; }
+  .zd-level { font-size: 11px; font-weight: 700; letter-spacing: .04em; margin: 0 0 10px; line-height: 1.45; }
+  .zd-dio { width: 100%; margin-top: 12px; }
 
   .block { padding: 15px 16px; border-bottom: 1px solid var(--hairline); }
   .block:last-child { border-bottom: none; }
   .block-title {
     font-family: var(--ff-display);
-    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase;
     color: var(--muted); margin: 0 0 13px; font-weight: 700;
     display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   }
@@ -335,7 +342,7 @@
   .zone-list { display: flex; flex-direction: column; }
   .zone-row {
     display: grid; grid-template-columns: 4px 1fr auto; gap: 11px;
-    align-items: center; padding: 9px 16px;
+    align-items: center; padding: 11px 16px 11px 13px;
     border-bottom: 1px solid var(--hairline);
     width: 100%; text-align: left;
     transition: background .14s var(--ease-out);
@@ -345,12 +352,12 @@
     .zone-row:hover { background: var(--surface-2); }
   }
   .zone-bar { width: 4px; height: 32px; border-radius: 1px; }
-  .zone-name { font-size: 13px; font-weight: 600; line-height: 1.25; }
+  .zone-name { font-size: 14px; font-weight: 600; line-height: 1.25; }
   .zone-name-ml { font-family: 'Noto Sans Malayalam', var(--ff-ui); font-size: 11px; color: var(--muted); font-weight: 400; }
   .zone-metrics { text-align: right; }
   .zone-depth {
     font-family: var(--ff-display); font-weight: 800;
-    font-size: 23px; line-height: 1; letter-spacing: -0.04em;
+    font-size: 19px; line-height: 1; letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
   }
   .zone-depth small { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
@@ -360,7 +367,7 @@
      ALERT FEED
      ============================================================ */
   .feed { display: flex; flex-direction: column; }
-  .alert { padding: 11px 16px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 6px; }
+  .alert { padding: 14px 16px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 6px; }
   .alert-head { display: flex; align-items: baseline; gap: 8px; }
   .alert-level { font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 800; }
   .alert-zone { font-size: 13px; font-weight: 600; }
@@ -542,30 +549,30 @@
   .hero-stack > * { pointer-events: auto; }
 
   .hero-card {
-    background: linear-gradient(150deg, var(--ac-wash, transparent), transparent 60%), var(--surface);
+    background: linear-gradient(150deg, var(--ac-wash, transparent), transparent 58%), #0A0F16;
     border: 2px solid var(--ac, var(--hairline-2));
     box-shadow: var(--panel-shadow);
-    padding: 15px 20px 17px;
+    padding: 22px 26px 24px;
     transition: border-color 300ms var(--ease-out), background 300ms var(--ease-out);
   }
   .hero-title {
     font-family: var(--ff-display); font-weight: 800;
-    font-size: 11px; letter-spacing: .17em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 11px;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 14px;
   }
-  .hero-row { display: flex; align-items: center; gap: 20px; }
+  .hero-row { display: flex; align-items: center; gap: 26px; min-height: 56px; }
   .hero-state {
     font-family: var(--ff-display); font-weight: 900;
-    font-size: clamp(30px, 3.4vw, 46px); line-height: 0.9; letter-spacing: -0.045em;
+    font-size: 48px; line-height: 0.92; letter-spacing: -0.045em;
     color: var(--ac, var(--text)); white-space: nowrap; flex: 0 0 auto;
     transition: color 300ms var(--ease-out);
   }
   .hero-lines { min-width: 0; }
   .hero-action {
     font-family: var(--ff-display); font-weight: 700; font-size: 17px;
-    line-height: 1.25; letter-spacing: -0.012em; margin: 0 0 5px;
+    line-height: 1.35; letter-spacing: -0.012em; margin: 0 0 8px;
   }
-  .hero-prep { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+  .hero-prep { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
   .hero-prep-k { color: var(--text); font-weight: 600; }
 
   @media (max-width: 1180px) {
@@ -578,23 +585,24 @@
      ============================================================ */
   .nb-card {
     display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    background: var(--surface); border: 1px solid var(--hairline);
-    border-left: 2px solid var(--human);
+    background: linear-gradient(150deg, rgba(178,107,255,.10), transparent 55%), var(--surface);
+    border: 1px solid var(--hairline-2);
+    border-left: 3px solid var(--human);
     box-shadow: var(--panel-shadow);
-    padding: 13px 16px;
+    padding: 20px 24px;
   }
   .nb-text { min-width: 0; flex: 1 1 240px; }
-  .nb-title { font-family: var(--ff-display); font-weight: 800; font-size: 11px;
-              letter-spacing: .16em; text-transform: uppercase; color: var(--human); margin: 0 0 6px; }
-  .nb-counts { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .nb-title { font-family: var(--ff-display); font-weight: 800; font-size: 14px;
+              letter-spacing: .14em; text-transform: uppercase; color: var(--human); margin: 0 0 9px; }
+  .nb-counts { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; }
   .nb-counts .nb-zone { color: var(--text); }
   .nb-counts .nb-n { color: var(--human); font-family: var(--ff-mono); font-weight: 700; }
-  .nb-note { margin: 5px 0 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .nb-note { margin: 7px 0 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
   .nb-btn {
-    flex: 0 0 auto; padding: 12px 18px;
+    flex: 0 0 auto; padding: 15px 24px;
     background: var(--human); color: #150826; border-radius: 2px;
     font-family: var(--ff-display); font-weight: 800;
-    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    font-size: 14px; letter-spacing: .09em; text-transform: uppercase;
     transition: filter .16s var(--ease-out), transform 140ms var(--ease-out);
   }
   .nb-btn:hover { filter: brightness(1.1); }
@@ -603,10 +611,20 @@
   /* ============================================================
      LAYER 3 — OFFLINE BADGE
      ============================================================ */
+  .topnav { display: flex; gap: 7px; margin-left: 22px; flex: 0 0 auto; }
+  .topnav a {
+    padding: 7px 12px; border: 1px solid var(--hairline-2); border-radius: 2px;
+    color: var(--muted); text-decoration: none;
+    font-family: var(--ff-display); font-size: 11px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; white-space: nowrap;
+    transition: color .16s var(--ease-out), border-color .16s var(--ease-out), background .16s var(--ease-out);
+  }
+  .topnav a:hover { color: var(--text); border-color: var(--muted); background: var(--surface-2); }
+
   .chip-offline {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 5px 11px; border: 1px solid var(--safe); border-radius: 2px;
-    font-size: 10px; letter-spacing: .11em; text-transform: uppercase; font-weight: 700;
+    font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
     color: var(--safe); white-space: nowrap;
   }
   .chip-offline .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -741,11 +759,12 @@
     position: relative; z-index: 2;
     display: flex; align-items: flex-start; gap: 20px;
     padding: 20px 24px;
-    background: linear-gradient(to bottom, rgba(8,13,20,.94) 55%, rgba(8,13,20,0));
+    background: linear-gradient(to bottom, rgba(6,10,16,.96) 45%, rgba(6,10,16,0));
   }
   .dio-name { font-family: var(--ff-display); font-weight: 800; font-size: 30px; letter-spacing: -0.03em; line-height: 1; }
   .dio-name-ml { font-family: 'Noto Sans Malayalam', var(--ff-ui); font-size: 14px; color: var(--muted); margin-top: 5px; }
-  .dio-level { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; margin-top: 8px; }
+  .dio-level { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800;
+               margin-top: 10px; text-shadow: 0 1px 10px rgba(0,0,0,.9); }
 
   .dio-close {
     margin-left: auto;
@@ -760,8 +779,10 @@
   .dio-close:hover { background: var(--surface-2); border-color: var(--muted); }
 
   .dio-readout {
-    position: absolute; left: 24px; bottom: 24px; z-index: 2;
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
     display: flex; align-items: flex-end; gap: 22px;
+    padding: 26px 24px 22px;
+    background: linear-gradient(to top, rgba(6,10,16,.94) 30%, rgba(6,10,16,0));
   }
   .dio-depth {
     font-family: var(--ff-display); font-weight: 900;
@@ -769,12 +790,13 @@
     font-variant-numeric: tabular-nums;
   }
   .dio-depth small { font-size: 22px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
-  .dio-meta { font-size: 11px; color: var(--muted); line-height: 1.65; padding-bottom: 8px; }
+  .dio-depth { color: var(--text); text-shadow: 0 2px 18px rgba(0,0,0,.8); }
+  .dio-meta { font-size: 12px; color: var(--text); line-height: 1.7; padding-bottom: 10px; }
   .dio-meta strong { color: var(--text); font-weight: 600; }
 
   .dio-note {
-    position: absolute; right: 24px; bottom: 24px; z-index: 2;
-    max-width: 290px; text-align: right;
+    position: absolute; right: 24px; bottom: 26px; z-index: 3;
+    max-width: 270px; text-align: right;
     font-size: 10px; color: var(--muted); line-height: 1.55;
   }
 
@@ -844,14 +866,19 @@
         <span class="stat-value" id="stat-depth">—</span>
       </div>
       <div class="stat stat-pop">
-        <span class="stat-label">In Warning zones <span class="pop-est">est.</span></span>
+        <span class="stat-label">In Warning <span class="pop-est">est.</span></span>
         <span class="stat-value" id="stat-pop">—</span>
       </div>
       <div class="stat stat-minor">
-        <span class="stat-label">City risk index</span>
+        <span class="stat-label">Risk index</span>
         <span class="stat-value" id="stat-index">—</span>
       </div>
     </div>
+
+    <nav class="topnav" aria-label="Console navigation">
+      <a href="admin.html">Admin</a>
+      <a href="login.html">Sign out</a>
+    </nav>
   </header>
 
   <!-- LAYER 1 — the console's answer to "what do I do", above everything
@@ -956,9 +983,7 @@
       <p class="attrib-note" style="margin-top:11px; font-size:9px">
         © OpenStreetMap contributors · © CARTO
       </p>
-      <p class="attrib-note" style="margin-top:9px">
-        <a href="admin.html" style="color:var(--muted)">Zone administration →</a>
-      </p>
+
     </div>
   </aside>
 
@@ -966,11 +991,6 @@
   <aside class="rail rail-right panel">
     <!-- Detail panel: what the map popup used to hold. Always available,
          never covering the map. -->
-    <div class="block rail-detail">
-      <h2 class="block-title">Zone detail</h2>
-      <div id="zone-detail"></div>
-    </div>
-
     <!-- Two independently scrolling panes, so the alert feed — and the
          dispatcher's Acknowledge action — can never fall below the fold. -->
     <div class="rail-split">
@@ -1282,10 +1302,9 @@ try {
   // Clicking a zone on the map goes straight to the street-level view.
   // The reference numbers live in the right-rail detail panel instead of a
   // popup, so reading them never blocks the map.
-  // LAYER 4 — permanent depth badge instead of a hover tooltip, so the
-  // number is readable at a glance and from across a room.
-  circle.bindTooltip('', { permanent: true, direction: 'center',
-                           className: 'depth-badge', opacity: 1 });
+  // Depth lives in the rail list, not on the map. Permanent badges on 13
+  // zones collided badly wherever zones sit close together.
+  circle.bindTooltip(`${z.name} — click for street level`, { sticky: true });
   circle.on('click', () => {
     if (state.reportMode) return;   // in report mode the click places a pin
     selectZone(z.id);
@@ -1457,11 +1476,6 @@ function paintMap(payload) {
       opacity: 0.4 + z.risk * 0.6,
       weight: 1.5 + z.risk * 1.5
     });
-    if (layer.getTooltip()) {
-      layer.setTooltipContent(`${Math.round(z.depthCm)} cm`);
-      const el = layer.getTooltip().getElement();
-      if (el) { el.style.borderColor = c; el.style.color = c; }
-    }
   });
 }
 
@@ -1473,7 +1487,7 @@ function paintHero(payload) {
   const A = ACTIONS[worst.level], L2 = LEVELS[worst.level];
   const card = document.getElementById('hero-card');
   card.style.setProperty('--ac', A.colour);
-  card.style.setProperty('--ac-wash', A.colour + '1C');
+  card.style.setProperty('--ac-wash', A.colour + '26');
   document.getElementById('hero-state').textContent = A.state;
   document.getElementById('hero-action').textContent = A.action;
   document.getElementById('hero-prep').textContent = A.prep;
@@ -1571,6 +1585,7 @@ function hhmm(d) {
    during a sweep would destroy focus, restart entry transitions, and repaint
    the whole rail every frame. */
 const zoneRowEls = new Map();
+const zoneDetEls = new Map();
 let zoneOrderKey = '';
 
 function buildZoneRows() {
@@ -1590,7 +1605,7 @@ function buildZoneRows() {
         <span class="zone-depth"><span class="zone-depth-n">0</span><small> cm</small></span><br>
         <span class="zone-level"></span>
       </span>`;
-    row.setAttribute('aria-pressed', 'false');
+    row.setAttribute('aria-expanded', 'false');
     // Selecting a row fills the detail panel and centres the map — it does
     // NOT open the diorama. Only a click on the map itself does that.
     row.addEventListener('click', () => {
@@ -1600,7 +1615,11 @@ function buildZoneRows() {
     // Keyboard users get the same detail on focus, without a click.
     row.addEventListener('focus', () => selectZone(seed.id));
     list.appendChild(row);
+    const det = document.createElement('div');
+    det.className = 'zone-detail'; det.hidden = true;
+    list.appendChild(det);
     zoneRowEls.set(seed.id, row);
+    zoneDetEls.set(seed.id, det);
   });
   document.getElementById('zone-count').textContent = ZONES.length;
 }
@@ -1626,7 +1645,10 @@ function paintZoneList(payload) {
   if (key !== zoneOrderKey) {
     zoneOrderKey = key;
     const list = document.getElementById('zone-list');
-    ranked.forEach(z => list.appendChild(zoneRowEls.get(z.id)));
+    ranked.forEach(z => {
+      list.appendChild(zoneRowEls.get(z.id));
+      list.appendChild(zoneDetEls.get(z.id));
+    });
   }
 }
 
@@ -1723,46 +1745,36 @@ function paintFeed(payload) {
    the map goes straight to the diorama; the reference numbers sit here in
    the rail instead, always available and never covering the map.
    -------------------------------------------------------------------- */
+/* One zone open at a time, expanded under its own row. Replaces the separate
+   "Zone detail" panel, which ate a third of the rail and pushed the alert feed
+   off screen entirely. */
 function selectZone(id) {
-  state.selectedZone = id;
-  zoneRowEls.forEach((row, rid) => row.setAttribute('aria-pressed', String(rid === id)));
+  state.selectedZone = (state.selectedZone === id) ? null : id;
+  zoneRowEls.forEach((row, rid) => row.setAttribute('aria-expanded', String(rid === state.selectedZone)));
+  zoneDetEls.forEach((det, rid) => { det.hidden = rid !== state.selectedZone; });
   if (state.data) paintZoneDetail(state.data);
 }
 
 function paintZoneDetail(payload) {
-  const host = document.getElementById('zone-detail');
   const id = state.selectedZone;
-  const z = id && payload.zones.find(x => x.id === id);
+  if (!id) return;
+  const host = zoneDetEls.get(id);
+  const z = payload.zones.find(x => x.id === id);
   const seed = ZONES.find(s => s.id === id);
-
-  if (!z || !seed) {
-    host.innerHTML = `<p class="empty">Select a zone for detail, or click one on
-      the map to see it at street level.</p>`;
-    return;
-  }
-
+  if (!host || !z || !seed) return;
   const L2 = LEVELS[z.level];
   host.innerHTML = `
-    <div class="zd-head">
-      <div>
-        <div class="pop-name">${z.name}</div>
-        <div class="pop-name-ml" lang="ml">${seed.ml}</div>
-      </div>
-      <button class="zd-dio" data-diorama="${z.id}">Street level →</button>
-    </div>
-    <div class="pop-level" style="color:${L2.color}">${L2.imd}: ${L2.what} ${L2.act}</div>
-    <div class="pop-depth" style="color:${L2.color}">${Math.round(z.depthCm)}<small> cm</small></div>
-    <div class="pop-sub">predicted standing water</div>
+    <p class="zd-level" style="color:${L2.color}">${L2.imd}: ${L2.what} ${L2.act}</p>
     <div class="pop-grid">
       <span class="pop-k">Risk index</span><span class="pop-v num">${z.risk.toFixed(2)}</span>
       <span class="pop-k">Population <span class="pop-est">est.</span></span><span class="pop-v num">${z.population.toLocaleString('en-IN')}</span>
       <span class="pop-k">Trend</span><span class="pop-v">${z.trend}</span>
       <span class="pop-k">On TP Canal</span><span class="pop-v">${seed.onCanal ? 'yes' : 'no'}</span>
     </div>
-    ${seed.onCanal ? `<p class="pop-note">Sits on the Thevara–Perandoor Canal, Kochi's
-      main drainage artery — silted, encroached, and backs up at high tide.</p>` : ''}
-    ${z.nudged ? `<p class="pop-note" style="color:var(--human)">Risk raised by a nearby
-      citizen report.</p>` : ''}`;
+    ${seed.onCanal ? `<p class="pop-note">Sits on the Thevara-Perandoor Canal, Kochi's main
+      drainage artery: silted, encroached, and backs up at high tide.</p>` : ''}
+    ${z.nudged ? `<p class="pop-note" style="color:var(--human)">Risk raised by a nearby citizen report.</p>` : ''}
+    <button class="zd-dio" data-diorama="${z.id}">Street level &rarr;</button>`;
 }
 
 function paintScrubber(horizon) {
@@ -2065,8 +2077,8 @@ const Diorama = (() => {
     // water — segmented so it can ripple
     waterGeo = new THREE.PlaneGeometry(160, 160, 56, 56);
     water = new THREE.Mesh(waterGeo, new THREE.MeshStandardMaterial({
-      color: 0x17E0CC, transparent: true, opacity: 0.62,
-      roughness: 0.12, metalness: 0.55
+      color: 0x1E5C7A, transparent: true, opacity: 0.86,
+      roughness: 0.14, metalness: 0.5
     }));
     water.rotation.x = -Math.PI / 2;
     water.position.y = 0;
@@ -2189,7 +2201,7 @@ const Diorama = (() => {
     const violet   = new THREE.MeshStandardMaterial({
       color: 0xB26BFF, emissive: 0x6B34A8, emissiveIntensity: 0.9, roughness: 0.45 });
     const violetLt = new THREE.MeshStandardMaterial({
-      color: 0xCFA3FF, emissive: 0x7B45B8, emissiveIntensity: 0.75, roughness: 0.45 });
+      color: 0xC08BFF, emissive: 0x6A38A0, emissiveIntensity: 0.6, roughness: 0.5 });
 
     const fig = new THREE.Group();
     const limb = (rTop, rBot, len, mat) =>
@@ -2205,23 +2217,23 @@ const Diorama = (() => {
       fig.add(foot);
     }
     // hips -> chest, tapered so the silhouette has a waist
-    const torso = limb(0.155, 0.115, 0.60, violet);
+    const torso = limb(0.135, 0.10, 0.60, violet);
     torso.position.y = 1.14; fig.add(torso);
     // shoulders as a spanning bar, which is what reads as "person" at distance
-    const shoulders = limb(0.062, 0.062, 0.40, violet);
+    const shoulders = limb(0.058, 0.058, 0.34, violet);
     shoulders.rotation.z = Math.PI / 2; shoulders.position.y = 1.42; fig.add(shoulders);
     // arms hanging with a slight outward angle
-    for (const dx of [-0.215, 0.215]) {
+    for (const dx of [-0.185, 0.185]) {
       const arm = limb(0.05, 0.038, 0.62, violet);
       arm.position.set(dx, 1.11, 0.01);
-      arm.rotation.z = dx < 0 ? 0.10 : -0.10;
+      arm.rotation.z = dx < 0 ? 0.045 : -0.045;
       fig.add(arm);
     }
     // neck + head, lighter so the face-end is the brightest point
     const neck = limb(0.045, 0.045, 0.10, violet);
     neck.position.y = 1.545; fig.add(neck);
     const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R, 18, 14), violetLt);
-    head.scale.set(0.92, 1.1, 0.95); head.position.y = 1.665; fig.add(head);
+    head.scale.set(0.9, 1.08, 0.94); head.position.y = 1.665; fig.add(head);
 
     // Its own light, so it never disappears into fog or a dark facade
     const figLight = new THREE.PointLight(0xB26BFF, 0.85, 9);
@@ -2334,7 +2346,14 @@ const Diorama = (() => {
     const L2 = LEVELS[z.level];
     targetDepth = z.depthCm / 100;
     curDepth = 0;
-    water.material.color.set(L2.color);
+    // Water reads as water first, warning second: a deep blue base pulled only
+    // 35% toward the level colour. A fully level-coloured plane rendered as a
+    // flat red floor, which looked like lava, not flood water.
+    water.material.color.set(0x1E5C7A).lerp(new THREE.Color(L2.color), 0.16);
+    // The warning reads in the AIR, not the water: tinting the fog keeps the
+    // water looking like water while the whole scene still carries the level.
+    scene.fog.color.set(0x131C33).lerp(new THREE.Color(L2.color), 0.14);
+    scene.background.set(0x131C33).lerp(new THREE.Color(L2.color), 0.10);
 
     document.getElementById('dio-name').textContent = z.name;
     document.getElementById('dio-name-ml').textContent = seed.ml;
