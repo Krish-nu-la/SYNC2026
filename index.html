@@ -73,177 +73,155 @@
   button:active { transform: scale(0.97); }
 
   /* ============================================================
-     MAP — the surface itself, edge to edge.
+     LAYOUT — implements the Figma frame "JalNetra Console Clean"
+     (1440x900). Measured from the file:
+       hero      1:5   812 x 135   at 16,16
+       citizen   1:9   472 x 95    at 16,165
+       map       1:13  1000 x 280  at 16,255
+       scrubber  1:15  1000 x 60   at 16,840
+       rail      1:17  320 x 900   at 1100,0
+     Two deviations, both to make the design operable:
+       - the design contains no rainfall control anywhere, so the scenario
+         could never change; it goes in the ~528px slot the design leaves
+         beside the 472px citizen card, which is why that card is narrower
+         than the 812px hero.
+       - the design leaves 305px empty between the map bottom (535) and the
+         scrubber (840). The map fills it.
      ============================================================ */
-  #map { position: fixed; inset: 0; z-index: 0; background: var(--ink); }
-  .leaflet-container { background: var(--ink); font-family: var(--ff-ui); }
-
-  /* Perspective/depth treatment. This sits ABOVE the map and never
-     receives pointer events — transforming the Leaflet container itself
-     breaks its hit-testing, so the depth cue is done here instead. */
-  /* Depth without a fake coordinate system. An earlier version raked a
-     tinted grid to a vanishing point over the map; on a public-safety
-     console a grid over real geography reads as if it MEANS something, and
-     it measures nothing. This does the same job — pushing the edges back so
-     the HUD sits forward — using only atmospheric falloff. */
-  .map-grade {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none;
-    background:
-      radial-gradient(105% 78% at 50% 40%,
-        rgba(8,13,20,0) 30%,
-        rgba(8,13,20,.42) 62%,
-        rgba(8,13,20,.80) 84%,
-        rgba(8,13,20,.95) 100%),
-      linear-gradient(to bottom,
-        rgba(8,13,20,.85) 0%, rgba(8,13,20,.18) 14%, rgba(8,13,20,0) 26%),
-      linear-gradient(to top,
-        rgba(8,13,20,.70) 0%, rgba(8,13,20,0) 18%);
+  .hud {
+    position: fixed; inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 16px;
+    padding: 0 16px 16px;
+    max-width: 1368px; margin: 0 auto;
+    pointer-events: none;
   }
-
-  /* ============================================================
-     HUD — floating console over the map.
-     ============================================================ */
-  .hud { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
   .hud > * { pointer-events: auto; }
 
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--hairline);
-    box-shadow: var(--panel-shadow);
-  }
-
-  /* ---- top strip ---- */
   .strip {
-    position: absolute; top: 0; left: 0; right: 0;
-    height: var(--strip-h);
-    display: flex; align-items: center; gap: 26px;
-    padding: 0 20px;
-    background: linear-gradient(to bottom, rgba(8,13,20,.97) 62%, rgba(8,13,20,0));
-    border: none; box-shadow: none;
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 18px;
+    height: 56px; flex-wrap: nowrap; overflow: hidden;
+    background: none; border: none; padding: 0; position: static;
   }
-
-  .wordmark {
-    margin: 0;
-    font-family: var(--ff-display);
-    font-weight: 900;
-    font-size: 28px;
-    letter-spacing: -0.025em;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .wordmark span { color: var(--safe); }
-
-  .issued {
-    color: var(--muted); font-size: 11px; line-height: 1.5;
-    border-left: 1px solid var(--hairline); padding-left: 18px;
-    white-space: nowrap;
-  }
-  .issued .num { color: var(--text); font-weight: 500; }
-
-  .chip-sim {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 5px 11px;
-    border: 1px solid var(--watch); border-radius: 2px;
-    font-size: 10px; letter-spacing: 0.11em; text-transform: uppercase; font-weight: 600;
-    color: var(--watch); white-space: nowrap;
-  }
-  .chip-sim::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--watch);
-  }
-
-  /* Statement numbers. These are the readout the whole console exists for. */
-  .strip-stats { display: flex; align-items: flex-end; gap: 22px; margin-left: auto; white-space: nowrap; }
-  .stat { display: flex; flex-direction: column; gap: 2px; }
-  .stat-label {
-    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
-    font-weight: 600; white-space: nowrap;
-  }
-  .stat-value {
-    font-family: var(--ff-display); font-weight: 800;
-    font-size: 24px; line-height: 0.95; letter-spacing: -0.03em;
-  }
-  .stat-hero .stat-value {
-    font-size: 52px; letter-spacing: -0.045em;
-    font-variant-numeric: tabular-nums;
-  }
-  .stat-hero .stat-value small {
-    font-size: 17px; font-weight: 600; color: var(--muted); letter-spacing: 0;
-  }
-  .stat-pop .stat-value { font-size: 32px; }
-  /* The risk index is secondary by construction — it saturates and ties
-     across zones, so it can inform but must not lead. */
-  .stat-minor .stat-value { font-size: 19px; color: var(--muted); font-weight: 700; }
-
-  /* ---- rails ---- */
-  .rail {
-    position: absolute; top: calc(var(--strip-h) + 2px); bottom: 116px;
-    display: flex; flex-direction: column;
-    overflow-y: auto; overscroll-behavior: contain;
-    scrollbar-width: thin;
-  }
-  .rail::-webkit-scrollbar { width: 7px; }
-  .rail::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
-  .rail-left  { left: var(--gap);  width: var(--rail-l); }
-  .rail-right {
-    right: var(--gap); width: var(--rail-r);
-    overflow: hidden;              /* the panes scroll, not the rail */
-  }
-
-  /* Right rail = fixed detail panel + two independently scrolling panes.
-     Without this the 13-row zone list pushes the alert feed — and the
-     dispatcher's Acknowledge action — below the fold on any laptop. */
-  .rail-split { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-  .rail-pane {
-    flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-    border-top: 1px solid var(--hairline-2);
-  }
+  .col-main { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
+  .rail-right { display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+                background: var(--surface); border: 1px solid var(--hairline);
+                position: static; width: auto; }
+  /* Two independently scrolling panes, so the alert feed can never be pushed
+     off the bottom by a 13-row zone list. */
+  .rail-pane { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .rail-pane + .rail-pane { border-top: 1px solid var(--hairline-2); }
   .rail-pane::-webkit-scrollbar { width: 7px; }
   .rail-pane::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
-  .pane-title {
-    position: sticky; top: 0; z-index: 1;
-    margin: 0; padding: 16px 16px 13px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--hairline);
-  }
+  .pane-title { position: sticky; top: 0; z-index: 1; margin: 0; padding: 14px 16px 12px;
+                background: var(--surface); border-bottom: 1px solid var(--hairline); }
 
-  .zd-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 7px; }
-  .zd-head > div { min-width: 0; }
-  .zd-dio {
-    margin-left: auto; flex: 0 0 auto;
-    padding: 7px 11px;
-    border: 1px solid var(--safe); border-radius: 2px; color: var(--safe);
-    font-family: var(--ff-display);
-    font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700;
-    white-space: nowrap;
-    transition: background .16s var(--ease-out), color .16s var(--ease-out);
+  /* ---- hero: Figma 1:5, 135px tall, 24px sides / 16px top-bottom ---- */
+  .hero-card {
+    flex: 0 0 auto; height: 135px;
+    background: #101A24;
+    border: 1px solid var(--ac, #FFC93C);
+    padding: 16px 24px;
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    transition: border-color 300ms var(--ease-out);
+    box-shadow: none; overflow: hidden;
   }
-  .zd-dio:hover { background: var(--safe); color: var(--ink); }
-  .zone-row { border-left: 3px solid transparent; }
-  .zone-row[aria-expanded="true"] { background: var(--surface-2); border-left-color: var(--safe); }
-  .zone-row[aria-expanded="true"] .zone-name { color: var(--safe); }
-  .zone-detail { padding: 2px 16px 15px; background: var(--surface-2);
-                 border-bottom: 1px solid var(--hairline); }
-  .zone-detail[hidden] { display: none; }
-  .zd-level { font-size: 11px; font-weight: 700; letter-spacing: .04em; margin: 0 0 10px; line-height: 1.45; }
-  .zd-dio { width: 100%; margin-top: 12px; }
+  .hero-title { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
+                letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  /* Figma 1:7 measured 57px tall -> 52px Archivo */
+  .hero-state { font-family: var(--ff-display); font-weight: 900; font-size: 52px;
+                line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, #FFC93C);
+                transition: color 300ms var(--ease-out); white-space: nowrap; }
+  .hero-action { margin: 0; font-size: 14px; line-height: 1.35; color: #EAF2F8;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero-prep { color: var(--muted); }
+  .hero-prep b { color: #EAF2F8; font-weight: 600; }
 
-  .block { padding: 15px 16px; border-bottom: 1px solid var(--hairline); }
-  .block:last-child { border-bottom: none; }
-  .block-title {
-    font-family: var(--ff-display);
-    font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 13px; font-weight: 700;
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  /* ---- row: citizen 472 + the rainfall slot beside it ---- */
+  .row-two { flex: 0 0 auto; display: grid; grid-template-columns: 472px minmax(0,1fr);
+             gap: 16px; height: 95px; }
+  .nb-card {
+    background: #101A24; border: 2px solid #A78BFA;
+    padding: 14px 20px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    min-width: 0; box-shadow: none;
   }
+  .nb-title { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
+              letter-spacing: .1em; text-transform: uppercase; color: #A78BFA; margin: 0; }
+  .nb-counts { margin: 0; font-size: 13px; line-height: 1.35; color: var(--muted);
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nb-counts .nb-n { color: #A78BFA; font-family: var(--ff-mono); font-weight: 700; }
+  .nb-counts .nb-zone { color: var(--text); }
+  .nb-btn { align-self: flex-start; background: none; padding: 0; color: #A78BFA;
+            font-family: var(--ff-display); font-weight: 700; font-size: 12px;
+            letter-spacing: .08em; text-transform: uppercase; }
+  .nb-btn:hover { color: var(--text); }
+  .nb-btn[aria-pressed="true"] { color: var(--text); }
+  .nb-note, .nb-text { display: contents; }
 
-  /* ---- floating scrubber, spanning between the rails ---- */
+  .cond-card { background: var(--surface); border: 1px solid var(--hairline);
+               padding: 12px 18px; display: flex; flex-direction: column;
+               justify-content: space-between; min-width: 0; }
+  .cond-title { font-family: var(--ff-display); font-weight: 700; font-size: 11px;
+                letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+                margin: 0; display: flex; align-items: baseline; gap: 10px; }
+  .cond-read { letter-spacing: 0; text-transform: none; color: var(--text);
+               font-family: var(--ff-mono); font-size: 13px; font-weight: 600; }
+  .cond-read b { color: var(--safe); font-family: var(--ff-display); margin-left: 6px; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  /* ---- map fills the remaining height ---- */
+  .map-wrap { position: relative; flex: 1 1 auto; min-height: 0;
+              border: 1px solid var(--hairline); overflow: hidden; }
+  #map { position: absolute; inset: 0; background: var(--ink); z-index: 0; }
+  .leaflet-container { background: var(--ink); font-family: var(--ff-ui); }
+  .map-grade { position: absolute; inset: 0; z-index: 400; pointer-events: none;
+    background: radial-gradient(115% 85% at 50% 45%, rgba(8,13,20,0) 52%, rgba(8,13,20,.45) 90%, rgba(8,13,20,.72) 100%); }
+  .btn-report-map {
+    position: absolute; left: 14px; bottom: 14px; z-index: 500;
+    padding: 11px 18px; background: #A78BFA; color: #150826; border-radius: 2px;
+    font-family: var(--ff-display); font-weight: 800; font-size: 11px;
+    letter-spacing: .09em; text-transform: uppercase;
+  }
+  .btn-report-map:hover { filter: brightness(1.1); }
+  .btn-report-map[aria-pressed="true"] { background: var(--text); color: var(--ink); }
+  .btn-report-kb, .btn-clear-reports {
+    position: absolute; left: 14px; bottom: 58px; z-index: 500;
+    padding: 8px 13px; border: 1px solid #A78BFA; border-radius: 2px; color: #A78BFA;
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
+    background: rgba(8,13,20,.92); width: auto; margin: 0;
+  }
+  .btn-clear-reports { bottom: 96px; border-color: var(--hairline-2); color: var(--muted); }
+  .btn-report-kb[hidden], .btn-clear-reports[hidden] { display: none; }
+  .report-hint { display: none; }
+
+  /* ---- scrubber: Figma 1:15, 60px tall ---- */
   .scrub {
-    position: absolute;
-    left: calc(var(--rail-l) + var(--gap) * 2);
-    right: calc(var(--rail-r) + var(--gap) * 2);
-    bottom: var(--gap);
-    padding: 15px 22px 17px;
+    flex: 0 0 auto; position: relative;
+    height: 60px; background: var(--surface); border: 1px solid var(--hairline);
+    display: flex; align-items: center; gap: 16px; padding: 0 18px;
   }
+  .scrub-label { font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+                 color: var(--muted); font-weight: 700; white-space: nowrap; }
+  .scrub-now { font-family: var(--ff-display); font-weight: 800; font-size: 20px;
+               letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scrub-mode { font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
+                font-weight: 700; white-space: nowrap; }
+  .scrub-track { position: relative; flex: 1 1 auto; min-width: 0; }
+  .ticks { display: flex; justify-content: space-between; padding: 0 6px; margin-top: -4px; }
+  .scrub-disc { display: flex; gap: 6px; }
+  .scrub-disc .disclosure-btn { width: auto; padding: 7px 11px; border: 1px solid var(--hairline-2);
+                                border-radius: 2px; font-size: 10px; }
+  .scrub .disclosure-body {
+    position: absolute; right: 18px; bottom: 68px; width: 390px; z-index: 600;
+    background: var(--surface); border: 1px solid var(--hairline-2);
+    padding: 16px 18px; box-shadow: var(--panel-shadow); margin: 0;
+  }
+  .sweep-cta { position: absolute; left: 18px; bottom: 68px; z-index: 600;
+               width: auto; margin: 0; padding: 11px 16px; }
 
   /* ============================================================
      CONTROLS
@@ -268,20 +246,7 @@
   #scrub::-webkit-slider-thumb { background: var(--safe); }
   #scrub::-moz-range-thumb { background: var(--safe); }
 
-  .rain-readout { display: flex; align-items: baseline; gap: 7px; }
-  .rain-value {
-    font-family: var(--ff-display); font-weight: 800;
-    font-size: 46px; line-height: 0.9; letter-spacing: -0.045em;
-    font-variant-numeric: tabular-nums;
-  }
-  .rain-unit { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-  .rain-name {
-    font-family: var(--ff-display); font-weight: 700;
-    font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
-    color: var(--safe); margin: 6px 0 4px; min-height: 1.2em;
-  }
 
-  .presets { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
   .preset {
     padding: 5px 9px; border: 1px solid var(--hairline); border-radius: 2px;
     font-size: 11px; color: var(--muted);
@@ -291,14 +256,6 @@
   .preset[aria-pressed="true"] { color: var(--ink); background: var(--text); border-color: var(--text); font-weight: 600; }
 
   /* ---- time scrubber ---- */
-  .scrub-head { display: flex; align-items: center; gap: 16px; margin-bottom: 4px; }
-  .scrub-label { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-  .scrub-now {
-    font-family: var(--ff-display); font-weight: 800;
-    font-size: 26px; letter-spacing: -0.03em; line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .scrub-mode { font-size: 10px; letter-spacing: .13em; text-transform: uppercase; font-weight: 600; }
 
   .btn-run {
     margin-left: auto;
@@ -314,15 +271,7 @@
   .btn-run[disabled] { opacity: .4; cursor: default; }
   .btn-run svg { width: 11px; height: 11px; fill: currentColor; }
 
-  .ticks { display: flex; justify-content: space-between; margin-top: 3px; padding: 0 8px; }
 
-  .sweep-cta {
-    display: block; width: 100%; margin-top: 11px; padding: 11px 16px;
-    background: var(--safe); color: var(--ink); border-radius: 2px;
-    font-family: var(--ff-display); font-size: 12px; font-weight: 700;
-    letter-spacing: .03em; text-align: left;
-    transition: filter .16s var(--ease-out), opacity 240ms var(--ease-out);
-  }
   .sweep-cta:hover { filter: brightness(1.12); }
   .sweep-cta[hidden] { display: none; }
   .tick {
@@ -532,84 +481,6 @@
     background: var(--human); border: 2px solid var(--ink);
     box-shadow: 0 0 0 2px var(--human), 0 2px 6px rgba(0,0,0,.55);
   }
-
-  /* ============================================================
-     LAYER 1 — HERO ACTION CARD
-     Floats over the map between the two rails: the most dominant
-     position available without moving anything that already worked.
-     ============================================================ */
-  .hero-stack {
-    position: absolute;
-    top: calc(var(--strip-h) + 2px);
-    left: calc(var(--rail-l) + var(--gap) * 2);
-    right: calc(var(--rail-r) + var(--gap) * 2);
-    display: flex; flex-direction: column; gap: 10px;
-    pointer-events: none;
-  }
-  .hero-stack > * { pointer-events: auto; }
-
-  .hero-card {
-    background: linear-gradient(150deg, var(--ac-wash, transparent), transparent 58%), #0A0F16;
-    border: 2px solid var(--ac, var(--hairline-2));
-    box-shadow: var(--panel-shadow);
-    padding: 22px 26px 24px;
-    transition: border-color 300ms var(--ease-out), background 300ms var(--ease-out);
-  }
-  .hero-title {
-    font-family: var(--ff-display); font-weight: 800;
-    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 14px;
-  }
-  .hero-row { display: flex; align-items: center; gap: 26px; min-height: 56px; }
-  .hero-state {
-    font-family: var(--ff-display); font-weight: 900;
-    font-size: 48px; line-height: 0.92; letter-spacing: -0.045em;
-    color: var(--ac, var(--text)); white-space: nowrap; flex: 0 0 auto;
-    transition: color 300ms var(--ease-out);
-  }
-  .hero-lines { min-width: 0; }
-  .hero-action {
-    font-family: var(--ff-display); font-weight: 700; font-size: 17px;
-    line-height: 1.35; letter-spacing: -0.012em; margin: 0 0 8px;
-  }
-  .hero-prep { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
-  .hero-prep-k { color: var(--text); font-weight: 600; }
-
-  @media (max-width: 1180px) {
-    .hero-row { flex-direction: column; align-items: flex-start; gap: 9px; }
-    .hero-state { font-size: 30px; }
-  }
-
-  /* ============================================================
-     LAYER 2 — NEIGHBOURS CARD
-     ============================================================ */
-  .nb-card {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    /* Violet is carried by the wash, the title and the button — a thick
-       coloured side bar on top of those adds no signal, and a side-tab accent
-       is the most recognisable generated-UI tell. Same treatment the hero card
-       already uses: a top rule, not a side tab. */
-    background: linear-gradient(150deg, rgba(178,107,255,.15), transparent 58%), var(--surface);
-    border: 1px solid var(--hairline-2);
-    box-shadow: inset 0 2px 0 0 var(--human), var(--panel-shadow);
-    padding: 20px 24px;
-  }
-  .nb-text { min-width: 0; flex: 1 1 240px; }
-  .nb-title { font-family: var(--ff-display); font-weight: 800; font-size: 14px;
-              letter-spacing: .14em; text-transform: uppercase; color: var(--human); margin: 0 0 9px; }
-  .nb-counts { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; }
-  .nb-counts .nb-zone { color: var(--text); }
-  .nb-counts .nb-n { color: var(--human); font-family: var(--ff-mono); font-weight: 700; }
-  .nb-note { margin: 7px 0 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
-  .nb-btn {
-    flex: 0 0 auto; padding: 15px 24px;
-    background: var(--human); color: #150826; border-radius: 2px;
-    font-family: var(--ff-display); font-weight: 800;
-    font-size: 14px; letter-spacing: .09em; text-transform: uppercase;
-    transition: filter .16s var(--ease-out), transform 140ms var(--ease-out);
-  }
-  .nb-btn:hover { filter: brightness(1.1); }
-  .nb-btn[aria-pressed="true"] { background: var(--text); color: var(--ink); }
 
   /* ============================================================
      LAYER 3 — OFFLINE BADGE
@@ -838,31 +709,18 @@
   FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 -->
 
-<div id="map" role="application" aria-label="Kochi flood risk map"></div>
-<div class="map-grade" aria-hidden="true"></div>
 
 <div class="hud">
 
-  <!-- ================= TOP STRIP ================= -->
+  <!-- ===== status strip: spans both columns ===== -->
   <header class="strip">
     <h1 class="wordmark">JAL<span>NETRA</span></h1>
-    <div class="issued">
-      Nowcast issued <span class="num" id="issued-at">—</span><br>
-      valid to <span class="num" id="valid-to">—</span> IST
-    </div>
+    <div class="issued">Nowcast <span class="num" id="issued-at">—</span> · valid to <span class="num" id="valid-to">—</span> IST</div>
     <span class="chip-sim" title="No live rainfall feed and no model output. Every figure is a deterministic simulation.">Simulated</span>
-    <!-- LAYER 3 — offline capability is a promise the product makes, so it
-         stays on screen. Reflects the REAL connection state. -->
     <span class="chip-offline" id="offline-chip">
       <span class="dot"></span><span id="offline-text">Offline-ready</span>
-      <span class="off-sub">last update <span class="num" id="offline-time">—</span></span>
+      <span class="off-sub"><span class="num" id="offline-time">—</span></span>
     </span>
-
-    <!-- DIRECTION.md §3.5: depth is the hero number, the 0–1 risk index is
-         secondary. "41 cm at Kaloor" is a sentence a judge repeats; "risk 0.82"
-         is not. An earlier pass inverted this — the index was 52px and depth
-         was 23px — so the largest number on screen was a unitless mean the
-         model itself saturates. -->
     <div class="strip-stats">
       <div class="stat stat-hero">
         <span class="stat-label">Deepest at <span id="stat-worst">—</span></span>
@@ -877,162 +735,99 @@
         <span class="stat-value" id="stat-index">—</span>
       </div>
     </div>
-
     <nav class="topnav" aria-label="Console navigation">
-      <a href="admin.html">Admin</a>
-      <a href="login.html">Sign out</a>
+      <a href="admin.html">Admin</a><a href="login.html">Sign out</a>
     </nav>
   </header>
 
-  <!-- LAYER 1 — the console's answer to "what do I do", above everything
-       else it shows. Added without disturbing the map, rails or scrubber. -->
-  <div class="hero-stack">
+  <!-- ===== content column ===== -->
+  <div class="col-main">
+
+    <!-- Figma 1:5 — Hero · Action, 812x135 -->
     <section class="hero-card" id="hero-card" aria-labelledby="hero-title">
       <h2 class="hero-title" id="hero-title">What should you do right now?</h2>
-      <div class="hero-row">
-        <span class="hero-state" id="hero-state">—</span>
-        <div class="hero-lines">
-          <p class="hero-action" id="hero-action">—</p>
-          <p class="hero-prep"><span class="hero-prep-k">Bring:</span> <span id="hero-prep">—</span></p>
-        </div>
-      </div>
+      <div class="hero-state" id="hero-state">—</div>
+      <p class="hero-action"><span id="hero-action">—</span>
+         <span class="hero-prep"><b>Bring:</b> <span id="hero-prep">—</span></span></p>
     </section>
 
-    <!-- LAYER 2 — the neighbours layer. Informational; the existing pin
-         system underneath is untouched. -->
-    <section class="nb-card" aria-labelledby="nb-title">
-      <div class="nb-text">
+    <!-- Figma 1:9 — Citizen · Reports, 472x95, plus the rainfall slot the
+         design leaves empty beside it. -->
+    <div class="row-two">
+      <section class="nb-card" aria-labelledby="nb-title">
         <h2 class="nb-title" id="nb-title">Your neighbours are reporting</h2>
         <p class="nb-counts" id="nb-counts">—</p>
-        <p class="nb-note" id="nb-note"></p>
-      </div>
-      <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
-    </section>
-  </div>
-
-  <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
-  <p class="map-notice" id="map-notice" role="status" hidden></p>
-
-  <!-- ================= LEFT RAIL ================= -->
-  <aside class="rail rail-left panel">
-    <div class="block">
-      <h2 class="block-title">Rainfall scenario</h2>
-      <div class="rain-readout">
-        <span class="rain-value" id="rain-value">62</span>
-        <span class="rain-unit">mm/hr</span>
-      </div>
-      <div class="rain-name" id="rain-name">Heavy</div>
-      <input type="range" id="rain" min="0" max="120" step="1" value="62"
-             aria-label="Rainfall intensity in millimetres per hour" aria-describedby="rain-name">
-      <div class="presets" id="presets" role="group" aria-label="Rainfall presets"></div>
-    </div>
-
-    <div class="block">
-      <h2 class="block-title">Citizen report</h2>
-      <button class="btn-report" id="btn-report" aria-pressed="false">Report waterlogging</button>
-      <!-- Keyboard path. The map-click route is mouse-only, and this mechanic
-           is half the Human × AI thesis — it cannot be unreachable. -->
-      <button class="btn-report btn-report-kb" id="btn-report-zone" hidden></button>
-      <button class="btn-clear-reports" id="btn-clear-reports" hidden>Clear all reports</button>
-      <p class="report-hint" id="report-hint">
-        Ground truth from the street. Drops a pin and nudges nearby zone risk —
-        client-side only, never sent anywhere.
-      </p>
-    </div>
-
-    <div class="block">
-      <button class="disclosure-btn" id="legend-btn" aria-expanded="false" aria-controls="legend-body">
-        <span>Warning level (IMD)</span><span class="caret">▶</span>
-      </button>
-      <div class="disclosure-body" id="legend-body" hidden></div>
-    </div>
-
-    <div class="block">
-      <button class="disclosure-btn" id="prov-btn" aria-expanded="false" aria-controls="prov-body">
-        <span>Data provenance</span><span class="caret">▶</span>
-      </button>
-      <div class="disclosure-body prov-body" id="prov-body" hidden>
-        <dl>
-          <dt>Real and citable</dt>
-          <dd>Zone list and approximate coordinates, from reporting on actual
-          waterlogging. The TP and Mullassery canal routes and their documented
-          failure modes. The IMD warning scale and the term “nowcast”.</dd>
-          <dt>Estimated — not sourced</dt>
-          <dd>Population per zone: approximations, <em>not</em> census or ward
-          figures, marked <span class="pop-est">est.</span> wherever they appear.
-          Susceptibility is authored to be physically plausible, not derived from
-          a digital elevation model.</dd>
-          <dt>Does not exist</dt>
-          <dd>No live rainfall feed, no model output. Every depth and risk figure
-          comes from a deterministic simulation running in this page. Nothing is
-          deployed and no agency endorses this.</dd>
-        </dl>
-      </div>
-    </div>
-
-    <div class="block">
-      <h2 class="block-title">Drainage</h2>
-      <p class="attrib-note">
-        The <strong>Thevara–Perandoor Canal</strong> is Kochi Corporation's main
-        drainage artery — silted, encroached, and backs up at high tide. The
-        <strong>Mullassery Canal</strong> has a reverse slope, pushing water into
-        the TP Canal rather than away from it. Routes approximate, from Kerala
-        Irrigation Department material.
-      </p>
-      <div class="zoombar">
-        <button id="zoom-in" aria-label="Zoom in">+</button>
-        <button id="zoom-out" aria-label="Zoom out">−</button>
-      </div>
-      <p class="attrib-note" style="margin-top:11px; font-size:9px">
-        © OpenStreetMap contributors · © CARTO
-      </p>
-
-    </div>
-  </aside>
-
-  <!-- ================= RIGHT RAIL ================= -->
-  <aside class="rail rail-right panel">
-    <!-- Detail panel: what the map popup used to hold. Always available,
-         never covering the map. -->
-    <!-- Two independently scrolling panes, so the alert feed — and the
-         dispatcher's Acknowledge action — can never fall below the fold. -->
-    <div class="rail-split">
-      <section class="rail-pane" aria-labelledby="zones-title">
-        <h2 class="block-title pane-title" id="zones-title">
-          Zones by depth <span id="zone-count" class="num"></span>
-        </h2>
-        <div class="zone-list" id="zone-list"></div>
+        <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
       </section>
-      <section class="rail-pane" aria-labelledby="feed-title">
-        <h2 class="block-title pane-title" id="feed-title">Alert feed</h2>
-        <div class="feed" id="feed"></div>
+
+      <section class="cond-card" aria-labelledby="cond-title">
+        <h2 class="cond-title" id="cond-title">Rainfall scenario
+          <span class="cond-read"><span class="num" id="rain-value">62</span> mm/hr
+          <b id="rain-name">Heavy</b></span></h2>
+        <input type="range" id="rain" min="0" max="120" step="1" value="62"
+               aria-label="Rainfall intensity in millimetres per hour">
+        <div class="presets" id="presets" role="group" aria-label="Rainfall presets"></div>
       </section>
     </div>
-  </aside>
 
-  <!-- ================= SCRUBBER ================= -->
-  <div class="scrub panel">
-    <div class="scrub-head">
+    <!-- Figma 1:13 — Map · Kochi, 1000 wide. Extended to fill the gap the
+         design leaves between the map and the scrubber. -->
+    <div class="map-wrap">
+      <div id="map" role="application" aria-label="Kochi flood risk map"></div>
+      <div class="map-grade" aria-hidden="true"></div>
+      <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
+      <p class="map-notice" id="map-notice" role="status" hidden></p>
+      <button class="btn-report-map" id="btn-report" aria-pressed="false">Report waterlogging</button>
+      <button class="btn-report-kb" id="btn-report-zone" hidden></button>
+      <button class="btn-clear-reports" id="btn-clear-reports" hidden>Clear reports</button>
+    </div>
+
+    <!-- Figma 1:15 — Scrubber · Timeline, 1000x60 -->
+    <div class="scrub">
       <span class="scrub-label">Horizon</span>
       <span class="scrub-now" id="scrub-now">NOW</span>
       <span class="scrub-mode" id="scrub-mode">observed</span>
-      <button class="btn-run" id="btn-run">
-        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0 L10 5 L0 10 Z"/></svg>
-        Run two-hour sweep
-      </button>
+      <div class="scrub-track">
+        <div class="scrub-progress" id="scrub-progress" aria-hidden="true"></div>
+        <input type="range" id="scrub" min="0" max="4" step="1" value="0"
+               aria-label="Forecast horizon in minutes from now" aria-valuetext="Now, observed">
+        <div class="ticks" id="ticks"></div>
+      </div>
+      <button class="btn-run" id="btn-run"></button>
+      <div class="scrub-disc">
+        <button class="disclosure-btn" id="legend-btn" aria-expanded="false" aria-controls="legend-body">Legend</button>
+        <button class="disclosure-btn" id="prov-btn" aria-expanded="false" aria-controls="prov-body">Sources</button>
+      </div>
+      <button class="sweep-cta" id="sweep-cta" hidden></button>
+      <div class="disclosure-body" id="legend-body" hidden></div>
+      <div class="disclosure-body prov-body" id="prov-body" hidden>
+        <dl>
+          <dt>Real and citable</dt>
+          <dd>Zone list and coordinates from reporting on actual waterlogging. The
+          Thevara–Perandoor and Mullassery canal routes and their documented failure
+          modes. The IMD warning scale and the term “nowcast”.</dd>
+          <dt>Estimated — not sourced</dt>
+          <dd>Population per zone: approximations, <em>not</em> census figures.
+          Susceptibility is authored to be plausible, not derived from a DEM.</dd>
+          <dt>Does not exist</dt>
+          <dd>No live rainfall feed, no trained model. Every figure comes from a
+          deterministic simulation on this device. Nothing is deployed.</dd>
+        </dl>
+      </div>
     </div>
-    <div class="scrub-track">
-      <div class="scrub-progress" id="scrub-progress" aria-hidden="true"></div>
-      <input type="range" id="scrub" min="0" max="4" step="1" value="0"
-             aria-label="Forecast horizon in minutes from now" aria-valuetext="Now — observed">
-    </div>
-    <div class="ticks" id="ticks"></div>
-
-    <!-- The sweep's ending IS the diorama's beginning: one signature sequence
-         with two beats, rather than two moments competing for the same slot. -->
-    <button class="sweep-cta" id="sweep-cta" hidden></button>
   </div>
 
+  <!-- Figma 1:17 — Right Rail · Zones + Alerts, 320 wide -->
+  <aside class="rail-right panel">
+    <section class="rail-pane" aria-labelledby="zones-title">
+      <h2 class="block-title pane-title" id="zones-title">Zones by depth <span id="zone-count" class="num"></span></h2>
+      <div class="zone-list" id="zone-list"></div>
+    </section>
+    <section class="rail-pane" aria-labelledby="feed-title">
+      <h2 class="block-title pane-title" id="feed-title">Alert feed</h2>
+      <div class="feed" id="feed"></div>
+    </section>
+  </aside>
 </div>
 
 <!-- ================= ZONE DIORAMA ================= -->
@@ -1527,17 +1322,17 @@ function paintNeighbours() {
     if (r.at && r.at > newest) newest = r.at;
   }
   const el = document.getElementById('nb-counts');
-  const note = document.getElementById('nb-note');
+  const note = document.getElementById('nb-note') || { };
 
   if (!counts.size) {
     el.innerHTML = '<span style="color:var(--muted)">No reports on this device yet.</span>';
-    note.textContent = 'If you can see water on your street, you know something the forecast does not.';
+    if (note) note.textContent = '';
     return;
   }
   const parts = [...counts.entries()].sort((a, b) => b[1] - a[1])
     .map(([name, n]) => `<span class="nb-n">${n}</span> in <span class="nb-zone">${name}</span>`);
   el.innerHTML = parts.join(' · ');
-  note.textContent = `Latest ${agoLabel(newest)}. Stored on this device only, never transmitted.`;
+  if ('textContent' in note) note.textContent = `Latest ${agoLabel(newest)}.`;
 }
 
 /* LAYER 3 — reflect the real connection state rather than always claiming
@@ -1861,7 +1656,8 @@ function setReportMode(on) {
   document.getElementById('btn-clear-reports').hidden = state.reports.length === 0;
 
   const n = state.reports.length;
-  document.getElementById('report-hint').innerHTML = n
+  const hintEl = document.getElementById('report-hint');
+  if (hintEl) hintEl.innerHTML = n
     ? `<span class="report-count">${n} report${n>1?'s':''} placed.</span> Nearby zone
        risk raised. Client-side only, never sent anywhere.`
     : `Ground truth from the street. Click the map, or select a zone and use the
@@ -2510,8 +2306,6 @@ document.getElementById('btn-report-zone').addEventListener('click', () => {
   if (z) addReport(z.lat, z.lng, z.name);
 });
 document.getElementById('btn-clear-reports').addEventListener('click', clearReports);
-document.getElementById('zoom-in').addEventListener('click', () => { if (mapOK) map.zoomIn(); });
-document.getElementById('zoom-out').addEventListener('click', () => { if (mapOK) map.zoomOut(); });
 
 // Popup buttons live in Leaflet-managed DOM, so delegate.
 document.addEventListener('click', e => {
