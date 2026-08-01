@@ -2032,12 +2032,12 @@ const Diorama = (() => {
     // Sky/ground split does most of the shaping work; the two directionals
     // give edge definition. Values are deliberately well above the console's
     // palette — an unlit dark scene is indistinguishable from a broken one.
-    scene.add(new THREE.HemisphereLight(0x6E86B8, 0x3A342C, 1.25));
-    scene.add(new THREE.AmbientLight(0x5A6A80, 0.5));
-    const key = new THREE.DirectionalLight(0xE8F1FA, 1.05);
+    scene.add(new THREE.HemisphereLight(0x6E86B8, 0x3A342C, 0.7));
+    scene.add(new THREE.AmbientLight(0x4A5A70, 0.28));
+    const key = new THREE.DirectionalLight(0xF2F8FF, 1.45);
     key.position.set(9, 16, 7);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0x2E8CA6, 0.85);
+    const rim = new THREE.DirectionalLight(0x2E8CA6, 0.55);
     rim.position.set(-11, 7, -16);
     scene.add(rim);
 
@@ -2045,14 +2045,14 @@ const Diorama = (() => {
     // relationship that makes the reference images readable.
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(180, 180),
-      new THREE.MeshStandardMaterial({ color: 0x4A4640, roughness: 0.95 }));
+      new THREE.MeshStandardMaterial({ color: 0x3B3833, roughness: 0.96 }));
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
     // Road = darker warm asphalt, distinctly browner than the pavement.
     const road = new THREE.Mesh(
       new THREE.PlaneGeometry(11, 170),
-      new THREE.MeshStandardMaterial({ color: 0x33302E, roughness: 1 }));
+      new THREE.MeshStandardMaterial({ color: 0x252220, roughness: 1 }));
     road.rotation.x = -Math.PI / 2;
     road.position.y = 0.012;
     scene.add(road);
@@ -2122,14 +2122,14 @@ const Diorama = (() => {
         // and setbacks all vary, and every fourth plot is a low-rise so the
         // skyline has rhythm rather than a flat ceiling.
         const lowRise = (i % 4 === 3);
-        const w = lowRise ? 5 + rnd() * 4 : 3.5 + rnd() * 6.5;
+        const w = lowRise ? 5.5 + rnd() * 4.5 : 3 + rnd() * 8;
         const d = 4.5 + rnd() * 7;
-        const h = lowRise ? 3.5 + rnd() * 4 : 7 + rnd() * 23;
+        const h = lowRise ? 3 + rnd() * 4.5 : 7 + rnd() * 31;
         const setback = rnd() * 1.6;
 
         // Cool slate, lightened with height so taller blocks catch more sky.
         const t = Math.min(1, h / 28);
-        const col = new THREE.Color(0x3E5364).lerp(new THREE.Color(0x6B86A2), t * 0.75 + rnd() * 0.2);
+        const col = new THREE.Color(0x4A6274).lerp(new THREE.Color(0x8AA6C2), t * 0.8 + rnd() * 0.2);
         const b = new THREE.Mesh(
           new THREE.BoxGeometry(w, h, d),
           new THREE.MeshStandardMaterial({ color: col, roughness: 0.82, flatShading: true }));
@@ -2139,7 +2139,7 @@ const Diorama = (() => {
         // A darker plinth grounds the block instead of it floating on the water
         const plinth = new THREE.Mesh(
           new THREE.BoxGeometry(w + 0.5, 1.1, d + 0.5),
-          new THREE.MeshStandardMaterial({ color: 0x2B3A47, roughness: 0.95 }));
+          new THREE.MeshStandardMaterial({ color: 0x1C2833, roughness: 0.95 }));
         plinth.position.set(b.position.x, 0.55, b.position.z);
         group.add(plinth);
 
@@ -2202,9 +2202,9 @@ const Diorama = (() => {
        r128 has no CapsuleGeometry — cylinders and spheres only. */
     const HEAD_R = 0.115;
     const violet   = new THREE.MeshStandardMaterial({
-      color: 0xB26BFF, emissive: 0x6B34A8, emissiveIntensity: 0.9, roughness: 0.45 });
+      color: 0xC77DFF, emissive: 0x4A1F78, emissiveIntensity: 0.35, roughness: 0.6 });
     const violetLt = new THREE.MeshStandardMaterial({
-      color: 0xC08BFF, emissive: 0x6A38A0, emissiveIntensity: 0.6, roughness: 0.5 });
+      color: 0xE0BBFF, emissive: 0x5A2A90, emissiveIntensity: 0.3, roughness: 0.6 });
 
     const fig = new THREE.Group();
     const limb = (rTop, rBot, len, mat) =>
@@ -2226,10 +2226,10 @@ const Diorama = (() => {
     const shoulders = limb(0.058, 0.058, 0.34, violet);
     shoulders.rotation.z = Math.PI / 2; shoulders.position.y = 1.42; fig.add(shoulders);
     // arms hanging with a slight outward angle
-    for (const dx of [-0.185, 0.185]) {
+    for (const dx of [-0.225, 0.225]) {
       const arm = limb(0.05, 0.038, 0.62, violet);
       arm.position.set(dx, 1.11, 0.01);
-      arm.rotation.z = dx < 0 ? 0.045 : -0.045;
+      arm.rotation.z = dx < 0 ? 0.16 : -0.16;
       fig.add(arm);
     }
     // neck + head, lighter so the face-end is the brightest point
@@ -2239,7 +2239,7 @@ const Diorama = (() => {
     head.scale.set(0.9, 1.08, 0.94); head.position.y = 1.665; fig.add(head);
 
     // Its own light, so it never disappears into fog or a dark facade
-    const figLight = new THREE.PointLight(0xB26BFF, 0.85, 9);
+    const figLight = new THREE.PointLight(0xB26BFF, 0.5, 7);
     figLight.position.set(0, 1.2, 0.6); fig.add(figLight);
 
     // Close to camera (z=15) and off the centre line so the water reads past it
