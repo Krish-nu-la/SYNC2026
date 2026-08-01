@@ -257,6 +257,61 @@ job of pushing the edges back without inventing a coordinate system.
 - **`vendor/tokens.css`** — the palette and type tokens now live in one file
   linked by all three pages, so they cannot drift.
 
+### Final layout — accepted 2026-08-01
+
+Implements the Figma frame **"JalNetra Console Clean"** (file
+`6cnkPwwW9utcjgPTwmuJkP`, node `1:4`, 1440×900). Measurements were read from
+the file, not estimated:
+
+| Region | Figma node | Size | Position |
+|---|---|---|---|
+| Hero · Action | `1:5` | 812 × **135** | 16, 16 |
+| Citizen · Reports | `1:9` | 472 × **95** | 16, 165 |
+| Map · Kochi | `1:13` | **1000** × 280 | 16, 255 |
+| Scrubber · Timeline | `1:15` | 1000 × **60** | 16, 840 |
+| Right Rail | `1:17` | **320** × 900 | 1100, 0 |
+
+Built as a CSS grid — `1fr + 320px`, 16px gaps, status strip spanning both
+columns — rather than absolute positioning, so it survives other viewports.
+
+**Top to bottom:**
+
+1. **Status strip**, 56px. JALNETRA wordmark, nowcast issued/valid, Simulated
+   chip, offline indicator, three stats (deepest depth, population in Warning
+   zones, risk index), and Admin / Sign out navigation.
+2. **Hero action card**, 135px. `#101A24` ground, 1px border in the *current
+   level colour* (yellow at Watch), 24px sides / 16px top-bottom. The state
+   word is **52px Archivo Black** — Figma's text node measured 57px tall.
+   Below it, the action line at 14px with a bold `Bring:` prefix.
+3. **Citizen reports**, 472px wide, 95px tall. `#101A24` with a 2px violet
+   border. Title 12px Archivo uppercase in violet, counts by zone, and the
+   report control.
+4. **Rainfall scenario**, ~512px, in the slot beside the citizen card. Slider
+   plus six presets: Dry / Drizzle / Moderate / Heavy / Very heavy / Cloudburst.
+5. **Map**, 1000px wide, filling the remaining height. **No depth badges on the
+   map** — permanent badges collided wherever zones sit close together, so depth
+   lives in the rail list. The citizen report control floats bottom-left over it.
+6. **Scrubber**, 60px, full width of the content column. Horizon readout,
+   observed/forecast marker, track with five stops, RUN control, and Legend /
+   Sources disclosures.
+7. **Right rail**, 320px. Zones by depth and Alert feed *only*, as two
+   independently scrolling panes so a 13-row zone list can never push the feed
+   off the bottom.
+
+**Three deviations from the Figma frame, all so the console stays operable:**
+
+- **The frame contains no rainfall control.** Without one the scenario can never
+  change and the hero can never escalate — the core interaction. It takes the
+  ~512px slot the frame leaves empty beside the 472px citizen card, which is
+  what explains that card being narrower than the 812px hero.
+- **The frame leaves 305px empty** between the map bottom (y=535) and the
+  scrubber (y=840). The map fills it.
+- **The frame has no status strip.** The wordmark, offline badge, stats and
+  navigation were all accepted earlier and are kept.
+
+One further departure: the hero runs the full 1000px rather than the frame's
+812px. At 812 it leaves a 188px void beside it, which reads as unfinished.
+
 ## 4. OPEN QUESTION — not decided, do not implement
 
 **Tide state.** Kochi's canals back up **at high tide** — a real, cited driver of

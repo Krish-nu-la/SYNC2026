@@ -624,6 +624,11 @@
      INTO the scene rather than cutting to a different page. Transform only,
      so it stays on the compositor. */
   #map, .map-grade { transition: transform 900ms var(--ease-out), filter 900ms var(--ease-out); }
+  /* Exit faster than entry: 900ms in, 520ms back out. */
+  body:not([data-diving="true"]) #map,
+  body:not([data-diving="true"]) .map-grade {
+    transition: transform 520ms var(--ease-out), filter 520ms var(--ease-out);
+  }
   body[data-diving="true"] #map,
   body[data-diving="true"] .map-grade { transform: scale(1.35); filter: brightness(0.55); }
 
@@ -2192,7 +2197,9 @@ const Diorama = (() => {
       requestAnimationFrame(() => {
         modal.dataset.enter = 'false';
         veil.dataset.on = 'false';
-        document.body.dataset.diving = 'false';
+        // diving stays TRUE while the diorama is open. Releasing it here meant
+        // the map quietly zoomed back out behind the modal, so on close there
+        // was nothing left to reverse and the return was a bare fade.
       });
       if (instant) { renderer.render(scene, camera); }
       else { raf = requestAnimationFrame(frame); }
@@ -2254,11 +2261,13 @@ const Diorama = (() => {
       if (raf) { cancelAnimationFrame(raf); raf = null; }
       modal.hidden = true;
       setBackgroundInert(false);
-      document.body.dataset.diving = 'false';   // map scales back
+      // Reverse the entry: release the dive and lift the veil together, so the
+      // map zooms back out from 1.35 as it reappears.
+      document.body.dataset.diving = 'false';
       requestAnimationFrame(() => { veil.dataset.on = 'false'; });
       if (lastFocus && lastFocus.focus) lastFocus.focus();
       zoneId = null;
-    }, 260);
+    }, 240);
   }
 
   window.addEventListener('resize', () => { if (ready && !document.getElementById('diorama').hidden) resize(); });
