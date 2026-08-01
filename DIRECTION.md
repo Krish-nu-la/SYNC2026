@@ -49,17 +49,21 @@ Each of these earned a specific decision downstream; they are not decoration.
 Base is tinted ink, never pure black. The risk ramp is IMD's, adjusted for legibility
 on dark.
 
-| Role | Value | Note |
-|---|---|---|
-| Base | `#0A0F16` | blue-tinted ink, not `#000` |
-| Surface | `#121B24` | panels floating on the map |
-| Hairline | `#1E2A36` | borders, grid |
-| **Safe** | `#3FB6AD` | cyan-teal — water-calm |
-| **Watch** | `#E5B23C` | IMD yellow, warmed |
-| **Alert** | `#EF7A29` | IMD orange |
-| **Warning** | `#E03A38` | IMD red — **the only fully saturated colour in the app** |
-| Text | `#E4EDF4` | muted: `#7A8B99` |
-| **Human** | `#A78BFA` | violet — see below |
+**Amended 2026-08-01 by an accepted intensity pass.** The original values read
+as muted to the point that Watch / Alert / Warning barely separated. Same hues,
+pushed chroma — no new colours were introduced.
+
+| Role | Value | Was | Note |
+|---|---|---|---|
+| Base | `#080D14` | `#0A0F16` | blue-tinted ink, not `#000` |
+| Surface | `#101A24` | `#121B24` | panels floating on the map |
+| Hairline | `#22323F` | `#1E2A36` | borders; `#2E4252` for the stronger tier |
+| **Safe** | `#17E0CC` | `#3FB6AD` | cyan-teal — water-calm |
+| **Watch** | `#FFC93C` | `#E5B23C` | IMD yellow, warmed |
+| **Alert** | `#FF7A1A` | `#EF7A29` | IMD orange |
+| **Warning** | `#FF2E4D` | `#E03A38` | IMD red — **the only fully saturated colour in the app** |
+| Text | `#EAF2F8` | `#E4EDF4` | muted: `#93A5B3` (raised for contrast) |
+| **Human** | `#B26BFF` | `#A78BFA` | violet — see below |
 
 **The rule that carries the thesis:** everything the AI produces uses the risk ramp.
 Everything a human does — the citizen's dropped pin, the dispatcher's acknowledgement —
@@ -80,8 +84,11 @@ When red arrives it has to mean something.
 - **IBM Plex Sans** — all UI. Designed for technical and operational contexts.
 - **IBM Plex Mono** — every number. Tabular by default, so digits don't jitter as the
   scrubber animates values. Non-negotiable given how much our numbers move.
-- **IBM Plex Sans Malayalam** — same superfamily, so zone names can render bilingually
-  (`Kaloor / കലൂർ`) in matching type.
+- **Noto Sans Malayalam** — for bilingual zone names (`Kaloor / കലൂർ`).
+  **Corrected 2026-08-01:** this originally specified *IBM Plex Sans Malayalam*,
+  which **does not exist** — Google Fonts returns HTTP 400 for it. Malayalam text
+  was silently falling back to an arbitrary system font. Noto Sans Malayalam is
+  the systematic, neutral substitute and is the right register for Operate.
 
 ### 2.3 Layout — console, not page
 
@@ -131,6 +138,32 @@ Six seconds, one gesture, static map → story, every number traceable to the co
 **Second-read moment:** the canal line. First glance, a subtle stroke beneath the zones.
 Second glance — every flooding zone is strung along it.
 
+### 2.5 SECOND signature moment — the zone diorama
+
+**Accepted 2026-08-01.** Opening a zone's popup offers a **street-level view**: a
+full-screen Three.js scene of that zone with water risen to its predicted
+`depthCm` at the current rainfall and horizon.
+
+**This is stylized and illustrative. It is NOT literal 3D terrain, and that
+distinction must not be lost later.** The street, the building silhouettes, and
+the figure are abstractions with exactly one job: giving the depth number a
+human scale. Nothing in the scene is surveyed, and no elevation data exists
+behind it. The on-screen label says so, and so does the code comment above the
+module.
+
+- The figure is **1.72 m tall** and is the scale reference the whole scene
+  exists for. 41 cm of water reading as mid-shin on a person is the point.
+- Water colour is the zone's IMD level colour, so the diorama and the map agree.
+- Rain density is driven by the rainfall control, tying the scene to the console.
+- Depth is labelled in cm on screen and is the contract's `depthCm` — the
+  provenance principle applies here exactly as it does on the map.
+- Layout per zone is **deterministic** (seeded from the zone id), so a zone looks
+  the same every time. Demos stay repeatable.
+- **Three.js r128, vendored at `vendor/three.r128.min.js`** — no network at
+  runtime. r128 has no `CapsuleGeometry`; the figure is cylinders and a sphere.
+
+**It reads `depthCm` and adds no fields to the data contract.**
+
 ---
 
 ## 3. Accepted changes to the spec (1–9, locked)
@@ -155,7 +188,74 @@ Second glance — every flooding zone is strung along it.
 
 None of these change `getFloodRisk()`.
 
+### Accepted 2026-08-01 — intensity pass and diorama (10–13)
+
+10. **Full-bleed map with a floating HUD**, replacing the even three-column grid.
+    Rails are deliberately unequal (244 px left, 356 px right) and the scrubber
+    floats between them. This is not new invention — §2.3 above already specified
+    "full-bleed map as substrate, panels float on it with real edges"; the first
+    build quietly opted out of it.
+11. **Saturation raised across the risk ramp and the human violet** (§2.1 table).
+    Statement type for the hero numbers — city risk index at 52 px, popup depth
+    at 44 px, diorama depth at 92 px, Archivo 800/900.
+12. **Legend moved out of the map overlay** into a collapsible left-rail
+    disclosure, collapsed by default. Data provenance sits beside it in the same
+    pattern.
+13. **The zone diorama** (§2.5) as the second signature moment.
+
+**Rejected during the same pass:** a perspective-raked grid overlay on the map.
+The mechanical detector flagged it, and the reasoning holds — a tinted grid over
+real geography on a public-safety console reads as if it *means* something, and
+it measures nothing. A false measurement affordance is worse than a flat map.
+The depth cue is now atmospheric falloff only (`.map-grade`), which does the same
+job of pushing the edges back without inventing a coordinate system.
+
 ---
+
+### Accepted 2026-08-01 — calibration, transition, and two new surfaces (14–19)
+
+14. **Depth bands widened to 10 / 25 / 50 cm** (from 5 / 15 / 30), anchored to
+    what water does to a street. At the default Heavy scenario the worst zone
+    now peaks at 41 cm / risk 0.55 with **zero** Warning zones; Cloudburst
+    brings **three** zones over. Red kept scarce, and 92/120 mm/hr now have
+    somewhere worse to go.
+    *Consequence to tell the backend: `CLAUDE.md`'s worked example still
+    produces `depthCm: 41` exactly, but that depth now classifies as Alert
+    rather than severe.*
+15. **`risk` rescaled to `depth / 75`** so band edges land on 0.13 / 0.33 /
+    0.66. "risk ≥ 0.66 means Warning" is now true by construction instead of
+    being a second scale that disagreed with the depth bands.
+16. **Susceptibilities respread** (0.95 → 0.22, same ranking, same high/med/low
+    grouping from `CLAUDE.md`). The originals clustered five zones at
+    0.85–0.92, which no exponent could separate — the city either went entirely
+    red or entirely dry.
+17. **"Now" carries antecedent water.** The accumulation curve started at 7% of
+    saturation, i.e. it assumed rain began the instant you pressed play. A
+    nowcast issued during a cloudburst must show water already on the street.
+18. **Diorama palette rebuilt on five distinct hue families** — indigo sky,
+    cool slate buildings, *warm* asphalt road, warm concrete pavement, vivid
+    level-coloured water, violet figure. The earlier version was five shades of
+    one blue and read as black. Buildings gained varied footprints, setbacks,
+    low-rise rhythm and plinths; the figure was rebuilt at ~7.5-head
+    proportions with shoulders, arms and neck; lampposts were moved onto the
+    kerb line.
+19. **Map → street-level transition.** Map scales toward the zone while a
+    blackout veil fades up (400 ms), the swap happens at full black, then the
+    diorama fades in as the camera eases forward (320 + 620 ms). Water is
+    already at depth on arrival — the answer, not a filling tank. Exit reverses
+    in ~500 ms, faster than entry. Total under the 1200 ms ceiling.
+
+### Surfaces beyond the console
+
+- **`login.html`** — demo gate. Performs **no authentication**; any input opens
+  the console, and the page says so on screen. Split layout: the product's
+  argument on the left, the gate on the right.
+- **`admin.html`** — zone configuration and model status. Deliberately separate
+  from the console: a dispatcher mid-event must not be able to change a
+  susceptibility by accident. Writes to `localStorage`; the console reads the
+  same key.
+- **`vendor/tokens.css`** — the palette and type tokens now live in one file
+  linked by all three pages, so they cannot drift.
 
 ## 4. OPEN QUESTION — not decided, do not implement
 

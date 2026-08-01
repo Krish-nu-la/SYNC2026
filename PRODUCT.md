@@ -8,10 +8,28 @@ web
 
 ## Stack
 
-Single-file `index.html` with vanilla JS and CSS, no build step. Map is Leaflet with
-CartoDB `dark_matter` tiles (keyless). Chosen by the user, not delegated — the reasons
-are stage reliability, trivial handover to a teammate, and no build tooling to fail
-during a live demo. No secrets or API keys in the repo.
+Vanilla JS and CSS, no build step. Map is Leaflet with CartoDB `dark_matter`
+tiles (keyless). Chosen by the user, not delegated — the reasons are stage
+reliability, trivial handover, and no build tooling to fail during a live demo.
+No secrets or API keys in the repo.
+
+**Everything is vendored** in `vendor/`: Leaflet 1.9.4 + CSS + control images,
+Three.js r128, and 16 self-hosted woff2 font subsets. There is **no network
+dependency at runtime**. This follows directly from the stage-reliability reason
+above — an earlier build loaded Leaflet from a CDN, which meant a slow or absent
+network produced a blank page rather than a degraded one. The map bootstrap is
+now wrapped so the console renders its forecast even with no basemap at all.
+
+## Surfaces
+
+Three pages, deliberately separated:
+
+- **`login.html`** — a demo gate. No authentication exists and the page states
+  that plainly; it frames the console as an operational tool rather than a toy.
+- **`index.html`** — the dispatcher console. Live operations only.
+- **`admin.html`** — zone configuration and model status. Separate on purpose:
+  configuration and live operation are different jobs, and a dispatcher during
+  an event should not be able to edit a susceptibility value by accident.
 
 ## Users
 
