@@ -526,8 +526,111 @@
     box-shadow: 0 0 0 2px var(--human), 0 2px 6px rgba(0,0,0,.55);
   }
 
+  /* ============================================================
+     LAYER 1 — HERO ACTION CARD
+     Floats over the map between the two rails: the most dominant
+     position available without moving anything that already worked.
+     ============================================================ */
+  .hero-stack {
+    position: absolute;
+    top: calc(var(--strip-h) + 2px);
+    left: calc(var(--rail-l) + var(--gap) * 2);
+    right: calc(var(--rail-r) + var(--gap) * 2);
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  .hero-stack > * { pointer-events: auto; }
+
+  .hero-card {
+    background: linear-gradient(150deg, var(--ac-wash, transparent), transparent 60%), var(--surface);
+    border: 2px solid var(--ac, var(--hairline-2));
+    box-shadow: var(--panel-shadow);
+    padding: 15px 20px 17px;
+    transition: border-color 300ms var(--ease-out), background 300ms var(--ease-out);
+  }
+  .hero-title {
+    font-family: var(--ff-display); font-weight: 800;
+    font-size: 11px; letter-spacing: .17em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 11px;
+  }
+  .hero-row { display: flex; align-items: center; gap: 20px; }
+  .hero-state {
+    font-family: var(--ff-display); font-weight: 900;
+    font-size: clamp(30px, 3.4vw, 46px); line-height: 0.9; letter-spacing: -0.045em;
+    color: var(--ac, var(--text)); white-space: nowrap; flex: 0 0 auto;
+    transition: color 300ms var(--ease-out);
+  }
+  .hero-lines { min-width: 0; }
+  .hero-action {
+    font-family: var(--ff-display); font-weight: 700; font-size: 17px;
+    line-height: 1.25; letter-spacing: -0.012em; margin: 0 0 5px;
+  }
+  .hero-prep { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+  .hero-prep-k { color: var(--text); font-weight: 600; }
+
+  @media (max-width: 1180px) {
+    .hero-row { flex-direction: column; align-items: flex-start; gap: 9px; }
+    .hero-state { font-size: 30px; }
+  }
+
+  /* ============================================================
+     LAYER 2 — NEIGHBOURS CARD
+     ============================================================ */
+  .nb-card {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-left: 2px solid var(--human);
+    box-shadow: var(--panel-shadow);
+    padding: 13px 16px;
+  }
+  .nb-text { min-width: 0; flex: 1 1 240px; }
+  .nb-title { font-family: var(--ff-display); font-weight: 800; font-size: 11px;
+              letter-spacing: .16em; text-transform: uppercase; color: var(--human); margin: 0 0 6px; }
+  .nb-counts { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .nb-counts .nb-zone { color: var(--text); }
+  .nb-counts .nb-n { color: var(--human); font-family: var(--ff-mono); font-weight: 700; }
+  .nb-note { margin: 5px 0 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .nb-btn {
+    flex: 0 0 auto; padding: 12px 18px;
+    background: var(--human); color: #150826; border-radius: 2px;
+    font-family: var(--ff-display); font-weight: 800;
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    transition: filter .16s var(--ease-out), transform 140ms var(--ease-out);
+  }
+  .nb-btn:hover { filter: brightness(1.1); }
+  .nb-btn[aria-pressed="true"] { background: var(--text); color: var(--ink); }
+
+  /* ============================================================
+     LAYER 3 — OFFLINE BADGE
+     ============================================================ */
+  .chip-offline {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px; border: 1px solid var(--safe); border-radius: 2px;
+    font-size: 10px; letter-spacing: .11em; text-transform: uppercase; font-weight: 700;
+    color: var(--safe); white-space: nowrap;
+  }
+  .chip-offline .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .chip-offline[data-online="true"] { border-color: var(--hairline-2); color: var(--muted); }
+  .off-sub { font-weight: 400; letter-spacing: .02em; text-transform: none; color: var(--muted); }
+
+  /* ============================================================
+     LAYER 4 — DEPTH BADGES
+     Always-on, centred on each zone. Deliberately small and
+     high-contrast so they label the map without obscuring it.
+     ============================================================ */
+  .leaflet-tooltip.depth-badge {
+    background: rgba(8,13,20,.9);
+    border: 1px solid var(--hairline-2);
+    color: var(--text);
+    border-radius: 2px; padding: 2px 6px;
+    font-family: var(--ff-mono); font-size: 11px; font-weight: 700;
+    white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.6);
+    transition: border-color 300ms var(--ease-out), color 300ms var(--ease-out);
+  }
+  .leaflet-tooltip.depth-badge::before { display: none; }
+
   .map-hint {
-    position: absolute; top: calc(var(--strip-h) + 12px); left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: calc(var(--scrub-h, 116px) + 22px); left: 50%; transform: translateX(-50%);
     z-index: 500;
     background: var(--human); color: var(--ink);
     padding: 9px 17px; border-radius: 2px;
@@ -723,6 +826,12 @@
       valid to <span class="num" id="valid-to">—</span> IST
     </div>
     <span class="chip-sim" title="No live rainfall feed and no model output. Every figure is a deterministic simulation.">Simulated</span>
+    <!-- LAYER 3 — offline capability is a promise the product makes, so it
+         stays on screen. Reflects the REAL connection state. -->
+    <span class="chip-offline" id="offline-chip">
+      <span class="dot"></span><span id="offline-text">Offline-ready</span>
+      <span class="off-sub">last update <span class="num" id="offline-time">—</span></span>
+    </span>
 
     <!-- DIRECTION.md §3.5: depth is the hero number, the 0–1 risk index is
          secondary. "41 cm at Kaloor" is a sentence a judge repeats; "risk 0.82"
@@ -744,6 +853,32 @@
       </div>
     </div>
   </header>
+
+  <!-- LAYER 1 — the console's answer to "what do I do", above everything
+       else it shows. Added without disturbing the map, rails or scrubber. -->
+  <div class="hero-stack">
+    <section class="hero-card" id="hero-card" aria-labelledby="hero-title">
+      <h2 class="hero-title" id="hero-title">What should you do right now?</h2>
+      <div class="hero-row">
+        <span class="hero-state" id="hero-state">—</span>
+        <div class="hero-lines">
+          <p class="hero-action" id="hero-action">—</p>
+          <p class="hero-prep"><span class="hero-prep-k">Bring:</span> <span id="hero-prep">—</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAYER 2 — the neighbours layer. Informational; the existing pin
+         system underneath is untouched. -->
+    <section class="nb-card" aria-labelledby="nb-title">
+      <div class="nb-text">
+        <h2 class="nb-title" id="nb-title">Your neighbours are reporting</h2>
+        <p class="nb-counts" id="nb-counts">—</p>
+        <p class="nb-note" id="nb-note"></p>
+      </div>
+      <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
+    </section>
+  </div>
 
   <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
   <p class="map-notice" id="map-notice" role="status" hidden></p>
@@ -1004,6 +1139,26 @@ const PRESETS = [
 
 const OFFSETS = [0, 30, 60, 90, 120];
 
+/* ------------------------------------------------------------------
+   ACTION LADDER — what a person should actually DO at each level.
+   The forecast's job is to end in an instruction; a number without one
+   is an unfinished thought.
+   ------------------------------------------------------------------ */
+const ACTIONS = {
+  safe:   { state: 'SAFE',    colour: '#17E0CC',
+            action: 'Nothing to do. Know your route out.',
+            prep:   'Save the Corporation control room number. Learn which way is higher ground from your door.' },
+  watch:  { state: 'WATCH',   colour: '#FFC93C',
+            action: 'Move valuables and documents off the floor.',
+            prep:   'Charge phones. Fill drinking water. Park vehicles higher while roads are still clear.' },
+  high:   { state: 'PREPARE', colour: '#FF7A1A',
+            action: 'Pack your go-bag now, before water reaches the road.',
+            prep:   'Documents, medicines, valuables, food, water, torch, charger, sturdy shoes, raincoat.' },
+  severe: { state: 'ACT NOW', colour: '#FF2E4D',
+            action: 'Move to higher ground or an upper floor immediately.',
+            prep:   'Take the go-bag and go. Switch off mains power. Do not enter the water to collect anything.' }
+};
+
 /* ==================================================================
    THE SEAM — replace this function's body with a real fetch(). Nothing
    else in this file changes.
@@ -1127,7 +1282,10 @@ try {
   // Clicking a zone on the map goes straight to the street-level view.
   // The reference numbers live in the right-rail detail panel instead of a
   // popup, so reading them never blocks the map.
-  circle.bindTooltip(`${z.name}. Click for street-level view`, { sticky: true });
+  // LAYER 4 — permanent depth badge instead of a hover tooltip, so the
+  // number is readable at a glance and from across a room.
+  circle.bindTooltip('', { permanent: true, direction: 'center',
+                           className: 'depth-badge', opacity: 1 });
   circle.on('click', () => {
     if (state.reportMode) return;   // in report mode the click places a pin
     selectZone(z.id);
@@ -1164,7 +1322,7 @@ function showMapNotice(msg) {
 /* Placing a report — shared by the map click and the keyboard path, so the
    citizen mechanic is never mouse-only. */
 function addReport(lat, lng, label) {
-  state.reports.push({ lat, lng });
+  state.reports.push({ lat, lng, at: Date.now() });
   if (mapOK && reportLayer) {
     L.marker([lat, lng], {
       icon: L.divIcon({ className: '', html: '<div class="pin-report"></div>', iconSize: [15,15], iconAnchor: [7,7] })
@@ -1265,6 +1423,9 @@ function renderAt(horizonMin) {
     if (worst) state.selectedZone = worst.id;
   }
 
+  paintHero(payload);
+  paintNeighbours();
+  paintOffline(payload);
   paintMap(payload);
   paintStrip(payload);
   paintZoneList(payload);
@@ -1296,7 +1457,80 @@ function paintMap(payload) {
       opacity: 0.4 + z.risk * 0.6,
       weight: 1.5 + z.risk * 1.5
     });
+    if (layer.getTooltip()) {
+      layer.setTooltipContent(`${Math.round(z.depthCm)} cm`);
+      const el = layer.getTooltip().getElement();
+      if (el) { el.style.borderColor = c; el.style.color = c; }
+    }
   });
+}
+
+/* LAYER 1 — driven by the WORST zone, because the card answers a city-wide
+   "should I be doing something" rather than a per-zone lookup. */
+function paintHero(payload) {
+  const worst = payload.zones.slice().sort((a, b) => b.depthCm - a.depthCm)[0];
+  if (!worst) return;
+  const A = ACTIONS[worst.level], L2 = LEVELS[worst.level];
+  const card = document.getElementById('hero-card');
+  card.style.setProperty('--ac', A.colour);
+  card.style.setProperty('--ac-wash', A.colour + '1C');
+  document.getElementById('hero-state').textContent = A.state;
+  document.getElementById('hero-action').textContent = A.action;
+  document.getElementById('hero-prep').textContent = A.prep;
+  card.setAttribute('aria-label',
+    `${A.state}. ${A.action} Worst zone ${worst.name}, ${Math.round(worst.depthCm)} centimetres, ${L2.imd}.`);
+}
+
+/* LAYER 2 — counts grouped by nearest zone, newest first. Reads the existing
+   state.reports array; the pin system itself is unchanged. */
+function nearestZone(lat, lng) {
+  let best = null, bd = Infinity;
+  for (const z of ZONES) {
+    const d = haversine(lat, lng, z.lat, z.lng);
+    if (d < bd) { bd = d; best = z; }
+  }
+  return best;
+}
+
+function agoLabel(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60);
+  return h === 1 ? '1 hr ago' : h + ' hrs ago';
+}
+
+function paintNeighbours() {
+  const counts = new Map();
+  let newest = 0;
+  for (const r of state.reports) {
+    const z = nearestZone(r.lat, r.lng);
+    if (!z) continue;
+    counts.set(z.name, (counts.get(z.name) || 0) + 1);
+    if (r.at && r.at > newest) newest = r.at;
+  }
+  const el = document.getElementById('nb-counts');
+  const note = document.getElementById('nb-note');
+
+  if (!counts.size) {
+    el.innerHTML = '<span style="color:var(--muted)">No reports on this device yet.</span>';
+    note.textContent = 'If you can see water on your street, you know something the forecast does not.';
+    return;
+  }
+  const parts = [...counts.entries()].sort((a, b) => b[1] - a[1])
+    .map(([name, n]) => `<span class="nb-n">${n}</span> in <span class="nb-zone">${name}</span>`);
+  el.innerHTML = parts.join(' · ');
+  note.textContent = `Latest ${agoLabel(newest)}. Stored on this device only, never transmitted.`;
+}
+
+/* LAYER 3 — reflect the real connection state rather than always claiming
+   offline mode. Either way the forecast is computed locally. */
+function paintOffline(payload) {
+  const chip = document.getElementById('offline-chip');
+  const on = navigator.onLine;
+  chip.dataset.online = String(on);
+  document.getElementById('offline-text').textContent = on ? 'Offline-ready' : 'Offline mode';
+  if (payload) document.getElementById('offline-time').textContent = hhmm(new Date(payload.generatedAt));
 }
 
 function paintStrip(payload) {
@@ -1598,6 +1832,7 @@ function syncRainReadout() {
 function setReportMode(on) {
   state.reportMode = on;
   document.getElementById('btn-report').setAttribute('aria-pressed', String(on));
+  document.getElementById('btn-report-hero').setAttribute('aria-pressed', String(on));
   document.getElementById('map-hint').hidden = !on;
   document.getElementById('map').style.cursor = on ? 'crosshair' : '';
 
@@ -2245,6 +2480,9 @@ document.getElementById('scrub').addEventListener('input', e => {
 
 document.getElementById('btn-run').addEventListener('click', startSweep);
 document.getElementById('btn-report').addEventListener('click', () => setReportMode(!state.reportMode));
+document.getElementById('btn-report-hero').addEventListener('click', () => setReportMode(!state.reportMode));
+window.addEventListener('online',  () => paintOffline());
+window.addEventListener('offline', () => paintOffline());
 document.getElementById('btn-report-zone').addEventListener('click', () => {
   const z = ZONES.find(x => x.id === state.selectedZone);
   if (z) addReport(z.lat, z.lng, z.name);
