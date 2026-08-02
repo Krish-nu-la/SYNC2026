@@ -268,7 +268,11 @@
     background: var(--surface); border: 1px solid var(--hairline-2);
     padding: 16px 18px; box-shadow: var(--panel-shadow); margin: 0;
   }
-  .sweep-cta { position: absolute; left: 18px; bottom: 68px; z-index: 600;
+  /* Anchored to the MAP column, not the scrubber's left edge. .scrub spans
+     1 / -1, so left:18px put this over the left rail, where it collided with
+     the drainage note once that note ran long. 240px column + 16px gap moves
+     it clear of the rail at every viewport height without touching the grid. */
+  .sweep-cta { position: absolute; left: calc(240px + 16px); bottom: 68px; z-index: 600;
                width: auto; margin: 0; padding: 11px 16px; }
 
   /* ============================================================
@@ -626,6 +630,8 @@
       max-height: none; overflow: visible;
     }
     .scrub { position: static; margin: var(--gap); }
+    /* Single column below 900px — there is no left rail to clear. */
+    .sweep-cta { left: 18px; }
     .map-hint { position: fixed; top: 12px; }
   }
 
@@ -992,7 +998,10 @@ const ZONES = [
 /* admin.html writes zone edits to this key. If present they replace the seed
    list above, so configuration lives on its own surface and the dispatcher
    console stays read-only for operations. */
-const LS_ZONES = 'jalnetra.zones.v1';
+/* v2: the zone set went from 13 to 16 at backend integration. A v1 entry saved
+   before that would shadow the new set and silently drop three zones, so the
+   key is versioned with the shape it stores. */
+const LS_ZONES = 'jalnetra.zones.v2';
 const LS_LOG   = 'jalnetra.calllog.v1';
 let ZONE_SOURCE = 'built-in defaults';
 try {
@@ -1098,6 +1107,7 @@ let dataSource = null;
 async function fetchForecast(rainfallMmHr) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const t0 = performance.now();
   try {
     const res = await fetch(`${API}/forecast?rain=${rainfallMmHr}`, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`forecast ${res.status}`);
@@ -1105,7 +1115,10 @@ async function fetchForecast(rainfallMmHr) {
     if (!data || !Array.isArray(data.frames)) throw new Error('forecast: no frames');
     const byOffset = new Map();
     data.frames.forEach(fr => byOffset.set(Number(fr.offset), fr));
-    return byOffset;
+    // The real round trip for all five offsets. Carried so admin.html can
+    // report network time rather than the cache-hit time of 0.0 ms that
+    // four of every five contract calls would otherwise record.
+    return { byOffset, netMs: performance.now() - t0 };
   } finally {
     clearTimeout(timer);
   }
@@ -1165,15 +1178,16 @@ async function getFloodRisk(rainfallMmHr, timeOffsetMin) {
   if (!forecastCache.has(rainfallMmHr)) {
     forecastCache.set(rainfallMmHr, fetchForecast(rainfallMmHr).catch(() => null));
   }
-  const byOffset = await forecastCache.get(rainfallMmHr);
+  const cached = await forecastCache.get(rainfallMmHr);
 
-  if (byOffset) {
-    const frame = byOffset.get(Number(timeOffsetMin));
+  if (cached) {
+    const frame = cached.byOffset.get(Number(timeOffsetMin));
     if (frame && Array.isArray(frame.zones)) {
       const zones = frame.zones.map(normaliseZone).filter(Boolean);
       if (zones.length) {
         setDataSource('live');
-        logCall(rainfallMmHr, timeOffsetMin, zones.length, performance.now() - t0);
+        logCall(rainfallMmHr, timeOffsetMin, zones.length,
+                performance.now() - t0, 'live', cached.netMs);
         return {
           generatedAt: frame.generatedAt || new Date().toISOString(),
           rainfallMmHr, timeOffsetMin, zones
@@ -1196,16 +1210,23 @@ async function getFloodRisk(rainfallMmHr, timeOffsetMin) {
       trend: delta >= 1.5 ? 'rising' : (delta <= -1.5 ? 'falling' : 'steady')
     };
   });
-  logCall(rainfallMmHr, timeOffsetMin, zones.length, performance.now() - t0);
+  logCall(rainfallMmHr, timeOffsetMin, zones.length,
+          performance.now() - t0, 'mock', null);
   return { generatedAt: new Date().toISOString(), rainfallMmHr, timeOffsetMin, zones };
 }
 
 /* Records each contract call so admin.html can show model status. Capped, and
    wrapped — a full or blocked localStorage must never break the console. */
-function logCall(rain, off, n, ms) {
+function logCall(rain, off, n, ms, src, netMs) {
   try {
     const log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
-    log.unshift({ at: Date.now(), rain, off, zones: n, ms: ms.toFixed(1) });
+    log.unshift({
+      at: Date.now(), rain, off, zones: n, ms: ms.toFixed(1),
+      src: src || 'mock',
+      // Network round trip for the /forecast call that produced this frame.
+      // null on the mock path, where there is no network to time.
+      net: (typeof netMs === 'number') ? netMs.toFixed(1) : null
+    });
     localStorage.setItem(LS_LOG, JSON.stringify(log.slice(0, 60)));
   } catch (e) { /* storage unavailable — status panel simply stays empty */ }
 }
@@ -1449,6 +1470,7 @@ function renderAt(horizonMin) {
   paintZoneDetail(payload);
   paintFeed(payload);
   paintScrubber(horizonMin);
+  refreshSweepCta(payload);
 }
 
 /* Settle on an exact contract stop. */
@@ -1936,6 +1958,19 @@ function showSweepCta(worst) {
 function hideSweepCta() {
   const cta = document.getElementById('sweep-cta');
   if (cta) cta.hidden = true;
+}
+
+/* The sweep RAISES this control, but the number inside it belongs to whatever
+   horizon is on screen NOW. Changing scenario after a sweep re-rendered every
+   other panel and left this one asserting a depth from a different forecast —
+   the rail read 69 cm while this still said 29 cm. Every render re-derives it
+   from the live payload, so it cannot drift out of step again. */
+function refreshSweepCta(payload) {
+  const cta = document.getElementById('sweep-cta');
+  if (!cta || cta.hidden) return;
+  const zones = (payload || state.data || {}).zones;
+  if (!zones || !zones.length) return;
+  showSweepCta(zones.slice().sort((a, b) => b.depthCm - a.depthCm)[0]);
 }
 
 function startSweep() {
