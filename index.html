@@ -553,6 +553,11 @@
   .chip-offline[data-online="true"] { border-color: var(--hairline-2); color: var(--muted); }
   .off-sub { font-weight: 400; letter-spacing: .02em; text-transform: none; color: var(--muted); }
 
+  /* Only the live state is styled. "Simulated" keeps the exact appearance it
+     shipped with, so the fallback looks like the build the layout was signed
+     off against rather than a degraded variant of it. */
+  .chip-sim.is-live { color: var(--safe); }
+
   /* ============================================================
      LAYER 4 — DEPTH BADGES
      Always-on, centred on each zone. Deliberately small and
@@ -769,7 +774,7 @@
   <header class="strip">
     <h1 class="wordmark">JAL<span>NETRA</span></h1>
     <div class="issued">Nowcast <span class="num" id="issued-at">—</span> · valid to <span class="num" id="valid-to">—</span> IST</div>
-    <span class="chip-sim" title="No live rainfall feed and no model output. Every figure is a deterministic simulation.">Simulated</span>
+    <span class="chip-sim" id="source-chip" title="No live rainfall feed and no model output. Every figure is a deterministic simulation.">Simulated</span>
     <span class="chip-offline" id="offline-chip">
       <span class="dot"></span><span id="offline-text">Offline-ready</span>
       <span class="off-sub"><span class="num" id="offline-time">—</span></span>
@@ -966,8 +971,10 @@
    onCanal: whether the zone sits on the TP Canal drainage line.
    -------------------------------------------------------------------- */
 const ZONES = [
+  { id:'aluva',        name:'Aluva',            ml:'ആലുവ',           lat:10.107, lng:76.355, baseSusceptibility:0.35, population:32000, onCanal:false },
   { id:'kalamassery',  name:'Kalamassery',      ml:'കളമശ്ശേരി',      lat:10.054, lng:76.320, baseSusceptibility:0.82, population:41000, onCanal:false },
   { id:'edappally',    name:'Edappally',        ml:'ഇടപ്പള്ളി',       lat:10.025, lng:76.308, baseSusceptibility:0.88, population:36500, onCanal:false },
+  { id:'perandoor',    name:'Perandoor',        ml:'പേരണ്ടൂർ',        lat:10.015, lng:76.309, baseSusceptibility:0.86, population:20000, onCanal:true  },
   { id:'palarivattom', name:'Palarivattom',     ml:'പാലാരിവട്ടം',     lat:10.007, lng:76.305, baseSusceptibility:0.7, population:24800, onCanal:false },
   { id:'kaloor',       name:'Kaloor',           ml:'കലൂർ',           lat: 9.997, lng:76.299, baseSusceptibility:0.95, population:18400, onCanal:true  },
   { id:'vennala',      name:'Vennala',          ml:'വെണ്ണല',         lat: 9.998, lng:76.323, baseSusceptibility:0.22, population:21200, onCanal:false },
@@ -978,6 +985,7 @@ const ZONES = [
   { id:'kadavanthra',  name:'Kadavanthra',      ml:'കടവന്ത്ര',        lat: 9.970, lng:76.298, baseSusceptibility:0.57, population:17800, onCanal:true  },
   { id:'vyttila',      name:'Vyttila',          ml:'വൈറ്റില',        lat: 9.967, lng:76.318, baseSusceptibility:0.74, population:28400, onCanal:false },
   { id:'panampilly',   name:'Panampilly Nagar', ml:'പനമ്പിള്ളി നഗർ',  lat: 9.965, lng:76.295, baseSusceptibility:0.52, population:13100, onCanal:true  },
+  { id:'fortkochi',    name:'Fort Kochi',       ml:'ഫോർട്ട് കൊച്ചി',   lat: 9.965, lng:76.243, baseSusceptibility:0.46, population:14000, onCanal:false },
   { id:'thevara',      name:'Thevara',          ml:'തേവര',           lat: 9.942, lng:76.292, baseSusceptibility:0.38, population:19600, onCanal:true  }
 ];
 
@@ -1064,9 +1072,87 @@ const ACTIONS = {
 };
 
 /* ==================================================================
-   THE SEAM — replace this function's body with a real fetch(). Nothing
-   else in this file changes.
+   THE SEAM — the only point of contact with the model.
+
+   Live path: GET /forecast?rain= returns ALL FIVE offsets in one response
+   (server-side 300 s cache), so a rainfall change costs one round trip
+   rather than five. getFloodRisk() keeps its per-offset signature — the
+   contract in BACKEND_HANDOFF.md §1 is unchanged — and simply serves the
+   matching frame out of that single response.
+
+   Fallback path: any failure, any non-200, or anything slower than
+   FETCH_TIMEOUT_MS drops to the deterministic in-browser simulation and
+   says so in the status strip. A backend that dies mid-demo must degrade
+   to a working console, never to a blank one.
    ================================================================== */
+
+const API = 'http://127.0.0.1:8000';
+const FETCH_TIMEOUT_MS = 2000;
+
+/* rainfall -> Promise<Map<offset, frame>>. Resolves to null if the backend
+   could not be reached, so the fallback is decided once per rainfall value
+   rather than five times. */
+const forecastCache = new Map();
+let dataSource = null;
+
+async function fetchForecast(rainfallMmHr) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API}/forecast?rain=${rainfallMmHr}`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`forecast ${res.status}`);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.frames)) throw new Error('forecast: no frames');
+    const byOffset = new Map();
+    data.frames.forEach(fr => byOffset.set(Number(fr.offset), fr));
+    return byOffset;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* The backend already matches the contract — level uses the same 10/25/50
+   bands and risk is already min(1, depth/75). This coerces types and casing
+   anyway, and re-derives anything missing or out of range, so a backend
+   change can degrade a field without taking the console down with it. */
+function normaliseZone(z) {
+  const depthCm = Number(z.depthCm);
+  if (!Number.isFinite(depthCm)) return null;
+  const level = String(z.level || '').toLowerCase();
+  const risk = Number(z.risk);
+  const trend = String(z.trend || '').toLowerCase();
+  return {
+    id: String(z.id),
+    name: String(z.name),
+    lat: Number(z.lat),
+    lng: Number(z.lng),
+    depthCm,
+    risk: Number.isFinite(risk) ? Math.max(0, Math.min(1, risk)) : Math.min(1, depthCm / RISK_FULL),
+    level: LEVELS[level] ? level : levelForDepth(depthCm),
+    population: Number(z.population) || 0,
+    trend: (trend === 'rising' || trend === 'falling') ? trend : 'steady'
+  };
+}
+
+/* Reflects live-vs-simulated in the status strip. The claim on screen has to
+   stay true: this build states its own provenance, so it must not say
+   "Simulated" while showing model output, or vice versa. */
+function setDataSource(mode) {
+  if (mode === dataSource) return;
+  dataSource = mode;
+  const chip = document.getElementById('source-chip');
+  if (!chip) return;
+  if (mode === 'live') {
+    chip.textContent = 'Live model';
+    chip.title = 'Connected to the JalNetra backend. Depth is physics-led (hydrology water balance) '
+               + 'with a trained gradient-boosted model applied as a bounded correction.';
+  } else {
+    chip.textContent = 'Simulated';
+    chip.title = 'Backend unreachable — running the deterministic in-browser simulation. '
+               + 'No live rainfall feed and no model output.';
+  }
+  chip.classList.toggle('is-live', mode === 'live');
+}
 
 /**
  * Returns flood risk for every zone at a given rainfall + time offset.
@@ -1075,6 +1161,28 @@ const ACTIONS = {
  */
 async function getFloodRisk(rainfallMmHr, timeOffsetMin) {
   const t0 = performance.now();
+
+  if (!forecastCache.has(rainfallMmHr)) {
+    forecastCache.set(rainfallMmHr, fetchForecast(rainfallMmHr).catch(() => null));
+  }
+  const byOffset = await forecastCache.get(rainfallMmHr);
+
+  if (byOffset) {
+    const frame = byOffset.get(Number(timeOffsetMin));
+    if (frame && Array.isArray(frame.zones)) {
+      const zones = frame.zones.map(normaliseZone).filter(Boolean);
+      if (zones.length) {
+        setDataSource('live');
+        logCall(rainfallMmHr, timeOffsetMin, zones.length, performance.now() - t0);
+        return {
+          generatedAt: frame.generatedAt || new Date().toISOString(),
+          rainfallMmHr, timeOffsetMin, zones
+        };
+      }
+    }
+  }
+
+  setDataSource('mock');
   const zones = ZONES.map(z => {
     const depthCm = mockDepth(z, rainfallMmHr, timeOffsetMin);
     const prevDepth = mockDepth(z, rainfallMmHr, Math.max(0, timeOffsetMin - 30));
@@ -1300,8 +1408,14 @@ function sampleAt(horizonMin) {
   const i = Math.min(OFFSETS.length - 2, Math.floor(t / 30));
   const a = FRAMES[i], b = FRAMES[i + 1];
   const f = (t - OFFSETS[i]) / 30;
-  const zones = a.zones.map((za, k) => {
-    const zb = b.zones[k];
+  // Join the two frames by id, not by array position. Index alignment held
+  // only as long as the backend happened to emit zones in a stable order;
+  // reordering zones.csv would have silently interpolated one zone's depth
+  // onto another's coordinates, which is the kind of bug nobody catches on
+  // stage. An id that vanishes between frames falls back to holding its value.
+  const bById = new Map(b.zones.map(z => [z.id, z]));
+  const zones = a.zones.map(za => {
+    const zb = bById.get(za.id) || za;
     const depthCm = za.depthCm + (zb.depthCm - za.depthCm) * f;
     return {
       id: za.id, name: za.name, lat: za.lat, lng: za.lng,

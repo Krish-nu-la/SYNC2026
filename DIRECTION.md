@@ -326,6 +326,80 @@ speculative stubs.
 
 ---
 
+## 4b. Where `depthCm` actually comes from — and why it is not the ML model alone
+
+**Decision: depth is physics-led. `hydrology_service` produces it; the trained model
+`flood_model.pkl` is applied on top as a bounded correction.** This is a deliberate
+choice made after measuring the model, and it is stated here so it can be said out loud
+rather than discovered.
+
+### What we measured
+
+The backend ships a real trained artefact — an `XGBRegressor` fitted on
+`flood_risk_dataset_india.csv`, a **district-level, all-India** flood dataset. Fed the
+Kochi zone table, it behaves like this:
+
+| Probe | Result |
+|---|---|
+| Output at **0 mm/hr** | **6.6 – 6.8 cm** of standing water in zero rain |
+| Output at **120 mm/hr** (cloudburst) | 13.5 – 13.9 cm — never reaches Alert (25 cm) |
+| **Spread across all zones** | **0.4 cm**, end to end |
+| Response to `elevation_m` | **flat at every value** |
+| Response to `terrain_risk` | flat above 0 — every Kochi zone lands on the same side of every split |
+| Response to `historical_floods`, `infrastructure` | flat above 0 |
+| **Absolute ceiling**, searched over a deliberately out-of-distribution grid | **46.4 cm** — and only at 600 mm/hr rainfall and a 10 m water level |
+
+`terrain_risk` is the single feature carrying susceptibility, drainage capacity and
+terrain factor. Because every zone falls on one side of its splits, **the model has no
+mechanism to distinguish Kaloor from Thevara.** The 0.4 cm of spread it does produce
+comes from latitude, longitude and population density — not hydrology. And its ceiling
+sits *below* the 50 cm Warning threshold, so no input at any value can make it issue a
+Warning.
+
+It is not a Kochi street-depth model, and asking it to be one would misrepresent it.
+
+### What we did instead
+
+`hydrology_service` computes a water balance per zone per horizon: rainfall accumulates
+over `ANTECEDENT_HOURS + offset`, a runoff coefficient (susceptibility × terrain × land
+cover) decides what becomes surface water, soil saturation removes the ground's capacity
+to absorb, drainage carries some away at an efficiency degraded by canal backup and
+saturation, and whatever is left ponds — deeper on low ground. Every term is driven by a
+real column in `zones.csv`.
+
+The model then runs on the **same time-evolved state** and applies a bounded
+multiplicative correction, normalised on a log scale across its measured envelope
+(5.99 – 37.20 cm) into ±`ML_CORRECTION` (25%).
+
+### What the model is actually worth
+
+Measured over 1,434 samples (16 zones × rainfall × 5 offsets, rainfall > 0):
+
+- correction applied ranges **×0.788 – ×1.250**
+- **mean absolute influence: 9.9%** of final depth
+- largest single-zone shift: **+12.73 cm**
+
+Worked example — Kaloor, cloudburst, +120 min: physics alone gives **56.30 cm**, the
+model's own raw output is **34.08 cm** (an Alert it can never escalate past), and the
+correction of ×1.226 produces the final **69.03 cm**. Remove the model and every number
+on screen changes.
+
+**Division of labour, stated plainly:** the physics decides *which zone floods first*;
+the model decides *how hard the city escalates* as the catchment loads up. Neither
+number is the other's decoration.
+
+### One data change this forced
+
+`zones.csv` shipped with `susceptibility` rating **Thevara 0.93 above Kaloor 0.88** — a
+coastal-elevation heuristic. That contradicts CLAUDE.md's zone table and the reporting it
+rests on, which name **Kalamassery, Kaloor and Edappally** as Kochi's worst-hit
+waterlogging zones. The `susceptibility` column was replaced with the frontend's
+documented, reporting-grounded values and `drain_capacity` re-derived to stay consistent
+with it. `elevation`, `terrain_factor`, `canal_distance_km`, `land_cover` and `soil_type`
+are the backend's originals, untouched.
+
+---
+
 ## 5. Quality floor (inherited from CLAUDE.md, restated because it's non-negotiable)
 
 Responsive to mobile · visible keyboard focus · `prefers-reduced-motion` respected ·

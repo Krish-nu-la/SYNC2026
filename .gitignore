@@ -22,3 +22,15 @@ build/
 # playwright / verification artefacts
 node_modules/
 package-lock.json
+
+# Python backend — virtualenv, bytecode, the sqlite store and the runtime log.
+# The trained model artefacts under backend/app/ml/models/ ARE tracked; the
+# things below are all regenerated on first run.
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+jalnetra.db
+*.db
+backend/logs/
