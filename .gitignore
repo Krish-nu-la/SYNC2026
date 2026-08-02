@@ -34,3 +34,6 @@ __pycache__/
 jalnetra.db
 *.db
 backend/logs/
+
+# macOS Finder duplicate artefacts ("file 2.py")
+*[[:space:]][0-9].py
