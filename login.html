@@ -73,14 +73,8 @@
   input:focus { border-color: var(--hairline-2); outline-offset: 0; }
   input::placeholder { color: #5D6E7C; }
 
-  .role { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 22px; }
-  .role button {
-    padding: 11px 8px; border: 1px solid var(--hairline); border-radius: 2px;
-    font-size: 11px; color: var(--muted);
-    transition: color .16s var(--ease-out), border-color .16s var(--ease-out), background .16s var(--ease-out);
-  }
-  .role button[aria-pressed="true"] { background: var(--text); color: var(--ink);
-                                      border-color: var(--text); font-weight: 600; }
+  /* The role selector that sat here is gone — one console, both audiences. */
+  .opt { color: #5D6E7C; font-weight: 400; letter-spacing: .04em; text-transform: none; }
 
   .submit {
     width: 100%; padding: 14px; background: var(--safe); color: var(--ink);
@@ -140,30 +134,30 @@
   </section>
 
   <section class="gate">
-    <h2>Sign in to the console</h2>
-    <p class="lede">Kochi Corporation flood operations.</p>
+    <h2>See what's coming to your street</h2>
+    <p class="lede">
+      What the water is doing near you for the next two hours, and what to do
+      about it. Works on a phone, and keeps working when the network doesn't.
+    </p>
 
     <form id="form" novalidate>
-      <label for="operator">Operator ID</label>
-      <input id="operator" name="operator" type="text" placeholder="e.g. KOC-4471" autocomplete="username">
+      <!-- No role selection. PRODUCT.md settled on ONE console serving both the
+           person on the street and the person dispatching to it; asking which
+           one you are at the door reintroduces exactly the split it removed. -->
+      <label for="who">Your name or area</label>
+      <input id="who" name="who" type="text" placeholder="e.g. Anjali, or Kaloor" autocomplete="name">
 
-      <label for="pass">Passphrase</label>
+      <label for="pass">Passphrase <span class="opt">optional</span></label>
       <input id="pass" name="pass" type="password" placeholder="••••••••" autocomplete="current-password">
 
-      <label id="role-label">Role</label>
-      <div class="role" role="group" aria-labelledby="role-label">
-        <button type="button" data-role="dispatcher" aria-pressed="true">Dispatcher</button>
-        <button type="button" data-role="observer" aria-pressed="false">Field observer</button>
-      </div>
-
-      <button class="submit" type="submit">Enter console</button>
+      <button class="submit" type="submit">See my area</button>
     </form>
 
     <p class="demo-note">
       <strong>Demo build</strong>
       This gate performs no authentication. Any input — including none — opens the
-      console. There is no account system, no server, and nothing is transmitted
-      or stored. It exists to frame the console as an operational tool.
+      console. There is no account system and nothing you type is transmitted or
+      stored.
     </p>
 
     <button class="skip" id="skip">Skip straight to the console →</button>
@@ -183,12 +177,6 @@
     rain.appendChild(s);
   }
 
-  document.querySelectorAll('.role button').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.role button').forEach(o =>
-        o.setAttribute('aria-pressed', String(o === b)));
-    });
-  });
 
   // No authentication. Anything passes — this is a demo gate, and the note on
   // screen says so rather than implying a login that does not exist.
