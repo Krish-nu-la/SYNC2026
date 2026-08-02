@@ -388,7 +388,7 @@
   }
   .alert-acked::before { content: "✓"; }
 
-  /* Unacknowledged Warning pulses until a dispatcher acknowledges — an
+  /* An unhandled Warning pulses until a resident marks it seen — an
      operational state borrowed from ATC collision alerts, not decoration. */
   .alert[data-pulse="true"] .alert-level {
     animation: pulse 1.5s ease-in-out infinite;
@@ -1725,8 +1725,8 @@ function paintFeed(payload) {
           <br>${Math.round(z.depthCm)} cm predicted · ${z.population.toLocaleString('en-IN')} people
           <span class="pop-est">est.</span> · ${z.trend}
         </p>
-        ${acked ? `<span class="alert-acked">Acknowledged</span>`
-                : `<button class="alert-ack" data-ack="${z.id}">Acknowledge &amp; dispatch</button>`}
+        ${acked ? `<span class="alert-acked">Acting on this</span>`
+                : `<button class="alert-ack" data-ack="${z.id}">Seen &mdash; I'm acting on this</button>`}
       </article>`;
   }).join('');
 
@@ -1748,7 +1748,7 @@ function paintFeed(payload) {
       state.acked.add(id);
       // Speak the human name — this used to read out the raw key, e.g.
       // "cbd underscore mgroad acknowledged".
-      announce(`${zone ? zone.name : id} acknowledged. Crew dispatched.`);
+      announce(`${zone ? zone.name : id} marked as seen. You're acting on this.`);
       feedSig = '';           // force a rebuild so the acked state renders
       paintFeed(state.data);
       // The rebuild deletes the button that was just activated, dropping focus
