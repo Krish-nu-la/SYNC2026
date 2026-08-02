@@ -115,6 +115,12 @@
     height: 56px; flex-wrap: nowrap; overflow: hidden;
     background: none; border: none; padding: 0; position: static;
   }
+  /* Base rule restored. Same failure as .wordmark above: .stat-value existed
+     ONLY inside the <=1280 override, so it inherited 14px on wide screens and
+     jumped to 42px below 1280 — overflowing this fixed 56px band and cutting
+     "Risk index" off the bottom entirely. The strip is a fixed-height band, so
+     the value is sized to the band: three rows at 18px = 54px, inside 56. */
+  .stat-value { font-size: 14px; line-height: 18px; }
   .col-main { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
 
   /* Left rail restored. Rainfall, the citizen report control, the legend and
@@ -183,9 +189,10 @@
   .hero-state { font-family: var(--ff-display); font-weight: 900; font-size: 52px;
                 line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, #FFC93C);
                 transition: color 300ms var(--ease-out); white-space: nowrap; }
-  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: #EAF2F8;
-                 display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-                 overflow: hidden; }
+  /* No clamp. This is the instruction the whole forecast exists to deliver, and
+     a 2-line clamp silently cut it mid-word ("Switch off mains powe…") as soon
+     as the column narrowed. .hero-card is min-height, so it grows instead. */
+  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: #EAF2F8; }
   .hero-prep { color: var(--muted); }
   .hero-prep b { color: #EAF2F8; font-weight: 600; }
 
@@ -603,8 +610,10 @@
      ============================================================ */
   @media (max-width: 1280px) {
     :root { --rail-l: 216px; --rail-r: 312px; }
-    .stat-hero .stat-value { font-size: 42px; }
-    .stat-pop .stat-value { font-size: 26px; }
+    /* The 42px/26px stat sizes that used to live here were written for an
+       earlier layout where the stats were a hero number with room to breathe.
+       In the current 56px strip they cannot fit, so they belong to the <=900
+       regime below, where the strip becomes auto-height and wraps. */
   }
 
   @media (max-width: 1040px) {
@@ -624,7 +633,12 @@
     }
     .wordmark { font-size: 24px; }
     .strip-stats { width: 100%; margin-left: 0; gap: 20px; }
-    .stat-hero .stat-value { font-size: 38px; }
+    /* Auto-height wrapped strip — there IS room for a big number here, so the
+       phone keeps exactly the sizes it had before the <=1280 block was cleaned.
+       line-height is reset to normal because the base rule pins it to 18px for
+       the fixed-height strip, which would squash a 38px number. */
+    .stat-hero .stat-value { font-size: 38px; line-height: normal; }
+    .stat-pop .stat-value { font-size: 26px; line-height: normal; }
     .rail {
       position: static; width: auto; margin: var(--gap); bottom: auto;
       max-height: none; overflow: visible;
