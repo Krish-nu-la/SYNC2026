@@ -762,8 +762,8 @@
   warning ramp (cyan/yellow/orange/red) at full saturation is the only
   chromatic system; violet is reserved exclusively for human action. Archivo
   at heavy weights for statement numbers, IBM Plex Mono for data.
-  STORY: A dispatcher reads which Kochi zones flood in the next two hours, a
-  citizen pins observed ground truth, the dispatcher acknowledges and acts.
+  STORY: A resident reads which Kochi zones flood in the next two hours, pins
+  observed ground truth, and marks the alerts they are acting on.
   FIRST VIEWPORT: Kochi edge-to-edge with the TP/Mullassery canal network.
   Asymmetric floating panels — narrow rainfall rail left, wide ranked-zone and
   alert stack right — with the time scrubber as a floating bar spanning
@@ -996,8 +996,8 @@ const ZONES = [
 ];
 
 /* admin.html writes zone edits to this key. If present they replace the seed
-   list above, so configuration lives on its own surface and the dispatcher
-   console stays read-only for operations. */
+   list above, so configuration lives on its own surface and the live console
+   stays read-only for operations. */
 /* v2: the zone set went from 13 to 16 at backend integration. A v1 entry saved
    before that would shadow the new set and silently drop three zones, so the
    key is versioned with the shape it stores. */
@@ -2225,8 +2225,8 @@ const Diorama = (() => {
 
     /* HUMAN FIGURE — the scale reference the entire scene exists for, so it
        gets the most care. Violet and emissive: doctrinally it is the person the
-       dispatcher is protecting (human, not model output), and practically it is
-       the only thing guaranteed to separate from every other surface.
+       forecast exists to protect (human, not model output), and practically it
+       is the only thing guaranteed to separate from every other surface.
 
        Proportions are ~7.5 heads, which is what makes a stick of primitives
        read as a person rather than a snowman. 1.72 m total.

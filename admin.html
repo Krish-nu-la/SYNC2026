@@ -174,9 +174,9 @@
 
 <p class="banner">
   <strong>Configuration surface</strong>
-  This screen edits the model's inputs. The dispatcher console deliberately does
-  not — live operations and configuration are separate jobs, and a dispatcher
-  mid-event should not be able to change a susceptibility value by accident.
+  This screen edits the model's inputs. The live console deliberately does
+  not — watching an event and configuring the model are separate jobs, and
+  nobody mid-event should be able to change a susceptibility value by accident.
   <strong class="banner-scope">In this demo the screen is effectively read-only:
   edits are saved to this browser only and are not persisted to the model.</strong>
   The backend reads its own zone table from

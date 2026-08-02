@@ -93,7 +93,7 @@ explicitly the worst-hit.
    worst zone, city-wide risk index.
 5. **Alert feed** — live-style entries as zones cross into high/severe.
 6. **Human-in-loop** — (a) citizen "Report waterlogging here" (drops a pin,
-   nudges nearby risk), (b) dispatcher "Acknowledge / dispatch" on an alert.
+   nudges nearby risk), (b) "Seen — I'm acting on this" on an alert.
 7. **Legend** — the 4 risk levels + what depth each maps to.
 
 ## Design direction

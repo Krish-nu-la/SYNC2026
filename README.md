@@ -19,7 +19,7 @@ minutes**, and then puts a person in the loop before anything happens:
   gradient-boosted regressor, predicts standing-water depth per zone per horizon.
 - **A citizen reports ground truth** — "Report waterlogging here" drops a pin and nudges
   nearby zone risk. The model is not the only witness.
-- **A dispatcher acts** — every alert carries an Acknowledge & Dispatch control. The
+- **A human acts** — every alert carries a "Seen — I'm acting on this" control. The
   forecast's job is to end in an instruction; a number without one is an unfinished
   thought.
 
