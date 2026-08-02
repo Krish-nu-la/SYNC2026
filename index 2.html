@@ -145,13 +145,13 @@
   .rain-name { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
                letter-spacing: .05em; text-transform: uppercase; color: var(--safe); margin: 5px 0 2px; }
   .btn-report-rail {
-    width: 100%; padding: 11px; border: 1px solid var(--human); border-radius: 2px; color: var(--human);
+    width: 100%; padding: 11px; border: 1px solid #A78BFA; border-radius: 2px; color: #A78BFA;
     font-family: var(--ff-display); font-size: 11px; letter-spacing: .09em;
     text-transform: uppercase; font-weight: 700;
     transition: background .16s var(--ease-out), color .16s var(--ease-out);
   }
   .btn-report-rail:hover,
-  .btn-report-rail[aria-pressed="true"] { background: var(--human); color: var(--ink); }
+  .btn-report-rail[aria-pressed="true"] { background: #A78BFA; color: var(--ink); }
   .rail-left .btn-report-kb, .rail-left .btn-clear-reports {
     position: static; width: 100%; margin-top: 7px; background: none;
   }
@@ -176,8 +176,8 @@
   /* ---- hero: Figma 1:5, 135px tall, 24px sides / 16px top-bottom ---- */
   .hero-card {
     flex: 0 0 auto; min-height: 135px;
-    background: var(--surface);
-    border: 1px solid var(--ac, var(--watch));
+    background: #101A24;
+    border: 1px solid var(--ac, #FFC93C);
     padding: 16px 24px;
     display: flex; flex-direction: column; justify-content: center; gap: 6px;
     transition: border-color 300ms var(--ease-out);
@@ -187,30 +187,30 @@
                 letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
   /* Figma 1:7 measured 57px tall -> 52px Archivo */
   .hero-state { font-family: var(--ff-display); font-weight: 900; font-size: 52px;
-                line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, var(--watch));
+                line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, #FFC93C);
                 transition: color 300ms var(--ease-out); white-space: nowrap; }
   /* No clamp. This is the instruction the whole forecast exists to deliver, and
      a 2-line clamp silently cut it mid-word ("Switch off mains powe…") as soon
      as the column narrowed. .hero-card is min-height, so it grows instead. */
-  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: var(--text); }
+  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: #EAF2F8; }
   .hero-prep { color: var(--muted); }
-  .hero-prep b { color: var(--text); font-weight: 600; }
+  .hero-prep b { color: #EAF2F8; font-weight: 600; }
 
   /* ---- row: citizen 472 + the rainfall slot beside it ---- */
   .row-two { flex: 0 0 auto; display: block; height: 95px; }
   .nb-card {
-    background: var(--surface); border: 2px solid var(--human);
+    background: #101A24; border: 2px solid #A78BFA;
     padding: 14px 20px;
     display: flex; flex-direction: column; justify-content: space-between;
     min-width: 0; box-shadow: none;
   }
   .nb-title { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
-              letter-spacing: .1em; text-transform: uppercase; color: var(--human); margin: 0; }
+              letter-spacing: .1em; text-transform: uppercase; color: #A78BFA; margin: 0; }
   .nb-counts { margin: 0; font-size: 13px; line-height: 1.35; color: var(--muted);
                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .nb-counts .nb-n { color: var(--human); font-family: var(--ff-mono); font-weight: 700; }
+  .nb-counts .nb-n { color: #A78BFA; font-family: var(--ff-mono); font-weight: 700; }
   .nb-counts .nb-zone { color: var(--text); }
-  .nb-btn { align-self: flex-start; background: none; padding: 0; color: var(--human);
+  .nb-btn { align-self: flex-start; background: none; padding: 0; color: #A78BFA;
             font-family: var(--ff-display); font-weight: 700; font-size: 12px;
             letter-spacing: .08em; text-transform: uppercase; }
   .nb-btn:hover { color: var(--text); }
@@ -237,7 +237,7 @@
     background: radial-gradient(115% 85% at 50% 45%, rgba(8,13,20,0) 52%, rgba(8,13,20,.45) 90%, rgba(8,13,20,.72) 100%); }
   .btn-report-map {
     position: absolute; left: 14px; bottom: 14px; z-index: 500;
-    padding: 11px 18px; background: var(--human); color: #150826; border-radius: 2px;
+    padding: 11px 18px; background: #A78BFA; color: #150826; border-radius: 2px;
     font-family: var(--ff-display); font-weight: 800; font-size: 11px;
     letter-spacing: .09em; text-transform: uppercase;
   }
@@ -245,7 +245,7 @@
   .btn-report-map[aria-pressed="true"] { background: var(--text); color: var(--ink); }
   .btn-report-kb, .btn-clear-reports {
     position: absolute; left: 14px; bottom: 58px; z-index: 500;
-    padding: 8px 13px; border: 1px solid var(--human); border-radius: 2px; color: var(--human);
+    padding: 8px 13px; border: 1px solid #A78BFA; border-radius: 2px; color: #A78BFA;
     font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
     background: rgba(8,13,20,.92); width: auto; margin: 0;
   }
@@ -432,13 +432,8 @@
   /* ============================================================
      LEGEND — collapsible, in the left rail. No longer over the map.
      ============================================================ */
-  /* min-height, not padding: 10px uppercase type gave these a 13px box, under
-     the 24px WCAG 2.5.8 floor. These two are the provenance affordances and
-     judges explore unguided, so they get 28px rather than the bare minimum.
-     align-items:center keeps the label optically where it already sat. */
   .disclosure-btn {
-    width: 100%; min-height: 28px;
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
     font-family: var(--ff-display);
     font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
     color: var(--muted);
