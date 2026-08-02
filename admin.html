@@ -136,8 +136,14 @@
     margin: 0 22px; padding: 12px 15px; border: 1px solid var(--watch); border-radius: 2px;
     font-size: 11px; line-height: 1.6; color: var(--muted);
   }
-  .banner strong { color: var(--watch); display: block; font-size: 9px; letter-spacing: .14em;
-                   text-transform: uppercase; margin-bottom: 5px; }
+  /* Only the LEADING strong is the banner's heading. Any strong inside the
+     prose is emphasis mid-sentence and must stay inline — scoping this to the
+     first child stops a file path from rendering as a yellow uppercase block. */
+  .banner > strong:first-child {
+    color: var(--watch); display: block; font-size: 9px; letter-spacing: .14em;
+    text-transform: uppercase; margin-bottom: 5px;
+  }
+  .banner strong { color: var(--text); }
 
   .toast {
     position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
@@ -171,7 +177,11 @@
   This screen edits the model's inputs. The dispatcher console deliberately does
   not — live operations and configuration are separate jobs, and a dispatcher
   mid-event should not be able to change a susceptibility value by accident.
-  Edits here are saved to this browser only; there is no server.
+  <strong class="banner-scope">In this demo the screen is effectively read-only:
+  edits are saved to this browser only and are not persisted to the model.</strong>
+  The backend reads its own zone table from
+  <strong>backend/app/data/zones.csv</strong>, so changes here affect the
+  in-browser fallback, not the live forecast.
 </p>
 
 <main>
@@ -228,8 +238,9 @@
         water balance per zone per horizon — rainfall accumulates, soil saturates,
         drainage degrades with canal backup, and what is left ponds deeper on low
         ground. The trained model <strong>flood_model.pkl</strong> then runs on the same
-        state and applies a bounded correction, <strong>mean 9.9% influence</strong> on
-        the final number. Rainfall is still a scenario slider, not a live feed.
+        state and applies a bounded correction — <strong>range ×0.79–×1.25, mean 9.9%
+        influence</strong> on the final number. Rainfall is still a scenario slider,
+        not a live feed.
         Contract and measurements: <strong>docs/BACKEND_HANDOFF.md</strong> and
         <strong>DIRECTION.md §4b</strong>.
       </p>
