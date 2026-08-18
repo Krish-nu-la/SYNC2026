@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+
+# Machine-local agent config — permissions, consent records, per-developer state.
+# The shared .impeccable/config.json IS tracked; these are not.
+.claude/settings.local.json
+.impeccable/config.local.json
+.impeccable/live/
+.impeccable/.cache/
+
+# Dependencies / build output (none today; here so they never land by accident)
+node_modules/
+dist/
+build/
+
+# Env & secrets — nothing in this repo should ever need one
+.env
+.env.*
+*.pem
+*.key
+
+# playwright / verification artefacts
+node_modules/
+package-lock.json
+
+# Python backend — virtualenv, bytecode, the sqlite store and the runtime log.
+# The trained model artefacts under backend/app/ml/models/ ARE tracked; the
+# things below are all regenerated on first run.
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+jalnetra.db
+*.db
+backend/logs/
+
+# macOS Finder duplicate artefacts ("file 2.py")
+*[[:space:]][0-9].py
