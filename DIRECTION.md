@@ -44,38 +44,105 @@ Each of these earned a specific decision downstream; they are not decoration.
 
 ## 2. The design
 
-### 2.1 Palette — "wet asphalt at night"
+### 2.1 Palette — "backwater at night" / "whitewash by day"
 
-Base is tinted ink, never pure black. The risk ramp is IMD's, adjusted for legibility
-on dark.
+Base is tinted ink, never pure black or pure white. The risk ramp is IMD's.
 
-**Amended 2026-08-01 by an accepted intensity pass.** The original values read
-as muted to the point that Watch / Alert / Warning barely separated. Same hues,
-pushed chroma — no new colours were introduced.
+**Amended 2026-08-01 by an accepted intensity pass** (same hues, pushed chroma).
+
+**Rebuilt 2026-08-19.** Two changes, and the second one is the reason for the first.
+
+**(a) The palette is now Kerala-grounded.** The previous base / safe / human hues
+were blue-black, cyan-teal and violet — which is, precisely, the default palette of
+Linear, Vercel, Framer and most of the AI-hackathon field. It said nothing about
+Kochi. The replacements are drawn from the place the forecast is actually about:
+still backwater at night, monsoon dark, and the brass of old Kerala fittings and
+signage. Every dark neutral is generated on **one** axis (CIE Lab hue 130,
+backwater-olive) and every light neutral on Lab hue 95 (whitewash warm), so no
+value is a leftover blue-grey.
+
+**(b) There is now a light theme.** Not an inversion — each state colour was
+re-derived against the light ground and re-measured, because inverting dark-mode
+values onto whitewash puts mid-tones where they have no contrast.
+
+**The palette's LOGIC is unchanged:** the IMD ladder is reserved for AI-produced
+risk values, exactly one hue outside the ladder is reserved for human action, and
+saturation stays scarce so Warning red still means something.
+
+#### Dark — "backwater at night"
 
 | Role | Value | Was | Note |
 |---|---|---|---|
-| Base | `#080D14` | `#0A0F16` | blue-tinted ink, not `#000` |
-| Surface | `#101A24` | `#121B24` | panels floating on the map |
-| Hairline | `#22323F` | `#1E2A36` | borders; `#2E4252` for the stronger tier |
-| **Safe** | `#17E0CC` | `#3FB6AD` | cyan-teal — water-calm |
-| **Watch** | `#FFC93C` | `#E5B23C` | IMD yellow, warmed |
-| **Alert** | `#FF7A1A` | `#EF7A29` | IMD orange |
-| **Warning** | `#FF2E4D` | `#E03A38` | IMD red — **the only fully saturated colour in the app** |
-| Text | `#EAF2F8` | `#E4EDF4` | muted: `#93A5B3` (raised for contrast) |
-| **Human** | `#B26BFF` | `#A78BFA` | violet — see below |
+| Base | `#0C0F08` | `#080D14` | green-black. Wet ground and monsoon dark, not a sci-fi console's blue ink |
+| Surface | `#1B1E19` | `#101A24` | panels floating on the map |
+| Surface-2 | `#232720` | `#16232F` | recessed rows |
+| Hairline | `#30342C` | `#22323F` | borders; `#41463D` for the stronger tier |
+| **Safe** | `#73A07E` | `#17E0CC` | still canal water at night — murky, olive-toned, deliberately not a bright UI teal |
+| **Watch** | `#FFC93C` | *unchanged* | IMD yellow |
+| **Alert** | `#FF7A1A` | *unchanged* | IMD orange |
+| **Warning** | `#FF2E4D` | *unchanged* | IMD red — still the only fully saturated colour |
+| Text | `#EDF2E9` | `#EAF2F8` | muted: `#9BA394` |
+| **Human** | `#A18853` | `#B26BFF` | aged temple brass — unpolished and olive-leaning on purpose; that is what pushes it clear of IMD yellow |
+| Canal | `#497665` | `#2E8CA6` | backwater channel, a shade below the safe green so it reads *beneath* the zones |
 
-**The rule that carries the thesis:** everything the AI produces uses the risk ramp.
-Everything a human does — the citizen's dropped pin, the dispatcher's acknowledgement —
-uses violet, deliberately *outside* the ramp. Two visual systems coexisting on one
-screen. The Human × AI argument becomes legible before anyone reads a word of it.
+#### Light — "old whitewash"
 
-**Declared deviation:** safe is cyan, not IMD's literal green. Green on a dark map reads
-"go" and fights the basemap. Label it "Safe / No warning" so the mapping to IMD stays
-explicit and honest.
+| Role | Value | Note |
+|---|---|---|
+| Base | `#F7F3EB` | limewashed Kerala house wall — warm render, never clinical SaaS white |
+| Surface | `#FFFEFA` | panels sit *above* the ground here, so they lift rather than recede |
+| Surface-2 | `#EEEBE1` | recessed rows |
+| Hairline | `#D7D4C9` | `#B8B6AA` for the stronger tier |
+| **Safe** | `#386B47` | the same backwater green taken to daylight depth, not lightened |
+| **Watch / Alert / Warning (fill)** | `#FFC93C` / `#FF7A1A` / `#FF2E4D` | **identical to dark.** A map fill, a legend swatch or a zone bar is the colour IMD publishes, in both themes |
+| **Watch / Alert / Warning (ink)** | `#906900` / `#8C3902` / `#7D2A2D` | the same IMD hues at reading weight. `#FFC93C` as small text on whitewash is 1.4:1 and simply unreadable |
+| Text | `#292D25` | muted: `#666A5C` |
+| **Human** | `#82693E` | the same brass at daylight depth, hue held near the dark value so the human system reads as one colour across both themes |
+| Canal | `#2F7D74` | |
 
-**Saturation discipline:** red appears rarely. Most zones sit quiet most of the time.
-When red arrives it has to mean something.
+**On the ladder inks.** Light mode keeps IMD's *hues* and, critically, IMD's
+*lightness order* — Watch lightest, Warning darkest. An earlier attempt flattened all
+three to roughly one lightness for contrast, which collapsed their separation under
+deuteranopia to ΔE 2.0. Preserving the ramp brings it back to 9.4, which is better
+than the dark theme's own 8.6.
+
+**The rule that carries the thesis** is untouched in substance: everything the AI
+produces uses the risk ramp; everything a human does — the citizen's dropped pin, the
+dispatcher's acknowledgement — uses brass, deliberately outside the ramp. Only the
+hue changed, from a generic violet to one that belongs to the place.
+
+**Declared deviation, revised.** Safe was cyan on the argument that green reads "go"
+and fights a dark basemap. That argument is now overridden deliberately: the green in
+question is not a signal green but the actual desaturated olive of Kochi's canals, and
+it is labelled "Safe / No warning" wherever it appears, so the mapping to IMD stays
+explicit. The original concern is answered by chroma, not by changing hue family.
+
+**Saturation discipline:** unchanged. Red appears rarely.
+
+#### Measured, not eyeballed
+
+All values below are computed — WCAG 2.1 relative luminance, CIEDE2000 for
+distinctness, and Viénot–Brettel–Mollon dichromat simulation. Deuteranopia and
+protanopia are the ones that matter here because gold/orange/red is the highest-risk
+confusion zone.
+
+- **Contrast.** Every state colour clears AA (4.5:1) as text on its own theme's panel
+  surface, in both themes. Tightest: dark Warning 4.61, dark Brass 4.94, light Watch
+  ink 4.95.
+- **Brass vs Watch — the hard constraint.** Dark ΔE 23.0 under both CVD types, against
+  a ladder whose own worst internal pair is 8.6. Light ΔE 8.7, against a ladder
+  internal 9.4.
+- **The honest weak spot.** Brass vs *Warning* in dark mode is ΔE 7.2 under
+  deuteranopia — marginally below the ladder's own Alert/Warning separation of 8.6.
+  This is not a tuning failure: dichromacy collapses the entire warm range, and
+  Warning red lands inside it. No brass escapes it. It is handled structurally rather
+  than chromatically — brass appears only as **fills, 2px borders and pins**, the
+  ladder only as **text labels and map fills**, and PRODUCT.md's rule that risk level
+  always carries its word means the level is never conveyed by colour alone.
+- **Hero card.** Its 52px state word takes the ladder *ink* so it stays legible on
+  whitewash; its 1px edge and glow take the *published* IMD colour, because an edge is
+  a mark rather than type. That split is also what keeps the hero's border clearly
+  distinct from the citizen card's brass border in light mode (ΔE 28–35 rather than 9).
 
 ### 2.2 Type
 
@@ -379,14 +446,35 @@ Measured over 1,434 samples (16 zones × rainfall × 5 offsets, rainfall > 0):
 - **mean absolute influence: 9.9%** of final depth
 - largest single-zone shift: **+12.73 cm**
 
-Worked example — Kaloor, cloudburst, +120 min: physics alone gives **56.30 cm**, the
-model's own raw output is **34.08 cm** (an Alert it can never escalate past), and the
-correction of ×1.226 produces the final **69.03 cm**. Remove the model and every number
+Worked example — Kaloor, cloudburst, +120 min: physics alone gives **55.32 cm**, the
+model's own raw output is **39.78 cm** (an Alert it can never escalate past), and the
+correction of ×1.250 produces the final **69.15 cm**. Remove the model and every number
 on screen changes.
 
 **Division of labour, stated plainly:** the physics decides *which zone floods first*;
 the model decides *how hard the city escalates* as the catchment loads up. Neither
 number is the other's decoration.
+
+### Recalibrated 2026-08-19 — `ANTECEDENT_HOURS` 0.75 → 1.75 h
+
+**`ANTECEDENT_HOURS` is now 1.75 h, and `DEPTH_GAIN` 1.03, recalibrated so the
+physics engine's resting position matches item 17's stated intent.** At 0.75 h,
+"Now" read 4.8 cm at Heavy and 13.1 cm at Cloudburst — a street with essentially
+nothing on it, which is the "rain begins the instant you pressed play" behaviour
+item 17 exists to reject. It now reads **11.4 cm (Watch)** at Heavy and
+**28.0 cm (Alert)** at Cloudburst.
+
+`DEPTH_GAIN` moved only as the counterweight, and only because the antecedent
+constant could not do the job alone: raising it lifts the whole curve, tail
+included, and at 1.75 h with the old gain Cloudburst +120 put **13 of 16 zones**
+into Warning instead of three — the "city goes entirely red or entirely dry"
+failure item 16 describes, and a breach of §2.1's saturation discipline. Scaling
+the gain back restores item 14's calibration exactly: **Heavy +120 still has zero
+Warning zones** (Kaloor 30.6 cm) and **Cloudburst +120 still has three** (Kaloor
+69.2, Vyttila 59.7, Perandoor 50.1). Dry still reads 0 cm at every horizon.
+
+The worked example above is the post-recalibration one; the model's measured
+influence is unchanged in kind (correction now spans ×0.821 – ×1.250).
 
 ### One data change this forced
 

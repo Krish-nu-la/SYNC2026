@@ -13,42 +13,35 @@
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="vendor/leaflet.css">
 
+<script>
+/* Theme resolved BEFORE first paint so the page never flashes the wrong
+   ground. Order of authority: the user's explicit choice, then the OS
+   preference, then dark (the design default). Inline and tiny on purpose —
+   an external or deferred script would paint first, which is the whole
+   problem it exists to avoid. The key is shared by all three pages, so a
+   choice made in the console carries to admin and login. */
+(function () {
+  try {
+    var t = localStorage.getItem('jalnetra.theme');
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.dataset.theme = t;
+  } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+})();
+</script>
+
 <style>
   /* ============================================================
-     TOKENS — DIRECTION.md §2.1, amended by the accepted intensity
-     pass. Same hues, pushed chroma. No new colors introduced.
+     TOKENS live in vendor/tokens.css — the single file all three pages
+     read, so dark/light and the whole palette cannot drift between them.
+     Nothing is redefined here: an inline :root would silently outrank the
+     stylesheet and re-introduce exactly the drift that file exists to
+     prevent. The one exception is the hero card's elevation, which is
+     declared on .hero-card itself because it references --ac/--ac-glow,
+     and a custom property's var() resolves against the element it is
+     DECLARED on, not the one that uses it.
      ============================================================ */
-  :root {
-    --ink:        #080D14;
-    --surface:    #101A24;
-    --surface-2:  #16232F;
-    --hairline:   #22323F;
-    --hairline-2: #2E4252;
-
-    --safe:       #17E0CC;
-    --watch:      #FFC93C;
-    --alert:      #FF7A1A;
-    --warning:    #FF2E4D;
-
-    --text:       #EAF2F8;
-    --muted:      #93A5B3;
-    --human:      #B26BFF;
-
-    --canal:      #2E8CA6;
-
-    --ff-display: 'Archivo', system-ui, sans-serif;
-    --ff-ui:      'IBM Plex Sans', 'Noto Sans Malayalam', system-ui, sans-serif;
-    --ff-mono:    'IBM Plex Mono', ui-monospace, monospace;
-
-    /* Deliberately unequal. An even grid is what made this read generic. */
-    --rail-l: 244px;
-    --rail-r: 356px;
-    --gap: 16px;
-    --strip-h: 76px;
-
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --panel-shadow: 0 18px 44px rgba(0,0,0,.62);
-  }
 
   *, *::before, *::after { box-sizing: border-box; }
 
@@ -73,215 +66,410 @@
   button:active { transform: scale(0.97); }
 
   /* ============================================================
-     LAYOUT — implements the Figma frame "JalNetra Console Clean"
-     (1440x900). Measured from the file:
-       hero      1:5   812 x 135   at 16,16
-       citizen   1:9   472 x 95    at 16,165
-       map       1:13  1000 x 280  at 16,255
-       scrubber  1:15  1000 x 60   at 16,840
-       rail      1:17  320 x 900   at 1100,0
-     Two deviations, both to make the design operable:
-       - the design contains no rainfall control anywhere, so the scenario
-         could never change; it goes in the ~528px slot the design leaves
-         beside the 472px citizen card, which is why that card is narrower
-         than the 812px hero.
-       - the design leaves 305px empty between the map bottom (535) and the
-         scrubber (840). The map fills it.
+     LAYOUT — DIRECTION.md §2.3 and §3 item 10.
+
+     The map is the SUBSTRATE of the entire viewport. Everything else
+     is a HUD that floats OVER it with real elevation. §3 item 10
+     rejected the even three-column grid; this is the layout accepted
+     in its place, and the build had quietly opted out of it again:
+
+       ┌────────────────────────────────────────────────────┐
+       │  ▣ status strip                                    │
+       │  ┌──────┐  ┌──────────────────────┐  ┌──────────┐  │
+       │  │ 244  │  │  HERO · ACTION       │  │   356    │  │
+       │  │ rain │  └──────────────────────┘  │  zones   │  │
+       │  │ cit. │  ┌──────────┐              │  ──────  │  │
+       │  │ leg. │  │ citizen  │   ← map →    │  alerts  │  │
+       │  └──────┘  └──────────┘              └──────────┘  │
+       │  ┌─ scrubber ──────────────────────────────────┐   │
+       └────────────────────────────────────────────────────┘
+
+     Rails are deliberately unequal — 244 left / 356 right. Equal
+     thirds are what made the first build read generic. The scrubber
+     runs the full width along the bottom because it is the hero
+     interaction, and it is the most horizontal thing on screen.
      ============================================================ */
+
+  /* ---- the substrate -------------------------------------------------
+     Not a panel in a column any more. #map is fixed to the viewport at
+     z-index 0, and every Leaflet pane is trapped inside its stacking
+     context, so nothing from the map can climb over the HUD.
+     ------------------------------------------------------------------ */
+  #map {
+    position: fixed; inset: 0; z-index: 0;
+    background: var(--ink);
+  }
+  .leaflet-container { background: var(--ink); font-family: var(--ff-ui); }
+
+  /* Atmospheric falloff only. §3 rejected a raked grid overlay because a
+     tinted grid on a public-safety map reads as if it MEASURES something.
+     This just pushes the edges back so the panels have a receding surface
+     to float above, and lays scrim under the strip and the scrubber so
+     floating chrome always has ground. */
+  .map-grade {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(to bottom, rgba(var(--ground-rgb),.88) 0, rgba(var(--ground-rgb),0) 190px),
+      linear-gradient(to top,    rgba(var(--ground-rgb),.90) 0, rgba(var(--ground-rgb),0) 200px),
+      /* The radial falloff used to reach .80 at the corners, which pushed
+         outlying zones back INTO the basemap instead of letting them stand
+         forward. It now tops out at .40 — enough to seat the panels on a
+         receding surface, not enough to mute a Warning zone. */
+      radial-gradient(135% 100% at 50% 46%, rgba(var(--ground-rgb),0) 46%, rgba(var(--ground-rgb),.22) 82%, rgba(var(--ground-rgb),.40) 100%);
+  }
+
   .hud {
-    position: fixed; inset: 0;
+    position: fixed; inset: 0; z-index: 10;
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr) 320px;
+    grid-template-columns: var(--rail-l) minmax(0, 1fr) var(--rail-r);
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 16px;
-    padding: 0 16px 16px;
-    max-width: 1440px; margin: 0 auto;
+    gap: var(--gap);
+    padding: var(--gap);
     pointer-events: none;
   }
+  /* The HUD is a frame, not a surface: only its panels take the pointer,
+     so every gap between them is live map. */
   .hud > * { pointer-events: auto; }
 
-  /* The base .wordmark rule was lost in the layout restructure, leaving only a
-     media-query override — which is why NETRA had stopped being cyan. */
+  /* ---- panel material ------------------------------------------------
+     Panels are objects sitting ON a surface, not cells in a grid. The
+     depth is carried by layered shadow — contact, mid, ambient — plus a
+     blurred backdrop and a bright inset top edge where light catches the
+     material. That top edge is the cue that reads as thickness.
+
+     Near-opaque (0.94) rather than glassy, deliberately: the IMD ladder
+     is the only chromatic system here, and small Warning labels have to
+     clear WCAG AA against whatever the basemap puts behind them. At 0.94
+     over a blurred basemap the worst measured case is 4.77:1 for #FF2E4D
+     on 9px bold — above the 4.5 floor. Depth comes from the shadow and
+     from the map continuing behind and around each panel, never from
+     washing the text out.
+     ------------------------------------------------------------------ */
+  .panel {
+    position: relative;
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: blur(24px) saturate(125%);
+    backdrop-filter: blur(24px) saturate(125%);
+    border-radius: var(--r);
+    box-shadow: var(--elev-1);
+  }
+
+  /* ---- status strip --------------------------------------------------
+     Floats like everything else. Fixed 56px band; the stat values are
+     sized to the band (three rows at 18px = 54px inside 56).
+     ------------------------------------------------------------------ */
+  .strip {
+    grid-column: 1 / -1; grid-row: 1;
+    display: flex; align-items: center; gap: 18px;
+    min-height: 56px; padding: 0 18px;
+    flex-wrap: nowrap; overflow: hidden;
+  }
   .wordmark {
-    font-family: var(--ff-display); font-weight: 900; font-size: 26px;
-    letter-spacing: -0.025em; line-height: 1; margin: 0; white-space: nowrap;
-    color: var(--text);
+    font-family: var(--ff-display); font-weight: 900; font-size: 24px;
+    letter-spacing: -0.03em; line-height: 1; margin: 0; white-space: nowrap;
+    color: var(--text); flex: 0 0 auto;
   }
   .wordmark span { color: var(--safe); }
 
-  .strip {
-    grid-column: 1 / -1;
-    display: flex; align-items: center; gap: 18px;
-    height: 56px; flex-wrap: nowrap; overflow: hidden;
-    background: none; border: none; padding: 0; position: static;
+  .issued {
+    font-size: 11px; color: var(--muted); white-space: nowrap;
+    letter-spacing: .01em; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis;
   }
-  /* Base rule restored. Same failure as .wordmark above: .stat-value existed
-     ONLY inside the <=1280 override, so it inherited 14px on wide screens and
-     jumped to 42px below 1280 — overflowing this fixed 56px band and cutting
-     "Risk index" off the bottom entirely. The strip is a fixed-height band, so
-     the value is sized to the band: three rows at 18px = 54px, inside 56. */
-  .stat-value { font-size: 14px; line-height: 18px; }
-  .col-main { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
+  .issued .num { color: var(--text); }
 
-  /* Left rail restored. Rainfall, the citizen report control, the legend and
-     the drainage note all lived here before the Figma pass; the frame has no
-     left column, so they had scattered into the map and scrubber. */
-  .rail-left {
-    grid-column: 1; grid-row: 2;
-    display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
-    background: var(--surface); border: 1px solid var(--hairline);
+  /* Provenance chip. PRODUCT.md principle 3 — say what's simulated, and
+     make it a hittable disclosure rather than a whisper. */
+  .chip-sim {
+    flex: 0 0 auto; cursor: help;
+    display: inline-flex; align-items: center; min-height: 24px;
+    padding: 5px 11px; border: 1px solid var(--hairline-2); border-radius: 2px;
+    font-size: 9px; letter-spacing: .11em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); white-space: nowrap;
+  }
+
+  .strip-stats { display: flex; align-items: center; gap: 26px; margin-left: auto; flex: 0 0 auto; }
+  .stat { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
+  .stat-label {
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .stat-value {
+    font-family: var(--ff-mono); font-variant-numeric: tabular-nums;
+    font-size: 15px; line-height: 18px; font-weight: 600; color: var(--text);
+  }
+
+  /* ---- rails ---------------------------------------------------------
+     244 / 356. The asymmetry is the point: the left rail sets the
+     scenario, the right rail carries the ranked result, and the result
+     needs more room than the input does.
+     ------------------------------------------------------------------ */
+  .rail-left  { grid-column: 1; grid-row: 2; }
+  .rail-right { grid-column: 3; grid-row: 2; }
+  .rail-left, .rail-right {
+    display: flex; flex-direction: column; min-height: 0;
     overscroll-behavior: contain;
   }
-  .rail-left::-webkit-scrollbar { width: 7px; }
-  .rail-left::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
-  .rail-left .block { padding: 14px 15px; border-bottom: 1px solid var(--hairline); }
+  /* The left rail is a stack of controls, not a column to be filled. It
+     sizes to its content and stops, so the map keeps running underneath
+     it instead of being walled off by an empty box. */
+  .rail-left  {
+    align-self: start; max-height: 100%; overflow-y: auto;
+    /* Same scroll-edge treatment as the panes: content fades out at the
+       cut instead of being sliced mid-sentence. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+  }
+  @media (max-width: 900px) {
+    .rail-left { -webkit-mask-image: none; mask-image: none; }
+  }
+  .rail-right { overflow: hidden; }
+
+  .rail-left::-webkit-scrollbar,
+  .rail-pane::-webkit-scrollbar { width: 7px; }
+  .rail-left::-webkit-scrollbar-thumb,
+  .rail-pane::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
+
+  .rail-left .block { padding: 15px 16px; border-bottom: 1px solid var(--hairline); }
   .rail-left .block:last-child { border-bottom: none; }
-  .rail-left .block-title { font-size: 10px; letter-spacing: .15em; margin-bottom: 10px; }
-  .rail-left .presets { margin-top: 10px; }
+
+  .block-title {
+    font-family: var(--ff-display); font-weight: 700;
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 11px;
+  }
+
+  /* Two independently scrolling panes, so a 13-row zone list can never
+     push the alert feed off the bottom. */
+  /* Scroll edge effect, not a hard cut: content fades out where it meets
+     the next pane, so a clipped half-row never reads as a broken panel. */
+  .rail-pane {
+    flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent 100%);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent 100%);
+  }
+  .rail-pane + .rail-pane { border-top: 1px solid var(--hairline-2); }
+  .pane-title {
+    position: sticky; top: 0; z-index: 2; margin: 0;
+    padding: 14px 16px 12px;
+    background: var(--panel-solid);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .pane-title .num { color: var(--text); }
+
+  /* ---- rainfall (left rail) ---- */
   .rain-readout { display: flex; align-items: baseline; gap: 6px; }
-  .rain-value { font-family: var(--ff-display); font-weight: 800; font-size: 34px;
-                line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .rain-value {
+    font-family: var(--ff-display); font-weight: 800; font-size: 34px;
+    line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+  }
   .rain-unit { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-  .rain-name { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
-               letter-spacing: .05em; text-transform: uppercase; color: var(--safe); margin: 5px 0 2px; }
+  .rain-name {
+    font-family: var(--ff-display); font-weight: 700; font-size: 12px;
+    letter-spacing: .05em; text-transform: uppercase; color: var(--safe); margin: 5px 0 2px;
+  }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ---- citizen controls (left rail) ---- */
   .btn-report-rail {
-    width: 100%; padding: 11px; border: 1px solid var(--human); border-radius: 2px; color: var(--human);
+    width: 100%; min-height: 38px; padding: 11px;
+    border: 1px solid var(--human); border-radius: 2px; color: var(--human);
     font-family: var(--ff-display); font-size: 11px; letter-spacing: .09em;
     text-transform: uppercase; font-weight: 700;
     transition: background .16s var(--ease-out), color .16s var(--ease-out);
   }
   .btn-report-rail:hover,
   .btn-report-rail[aria-pressed="true"] { background: var(--human); color: var(--ink); }
-  .rail-left .btn-report-kb, .rail-left .btn-clear-reports {
-    position: static; width: 100%; margin-top: 7px; background: none;
+  .btn-report-kb, .btn-clear-reports {
+    width: 100%; margin-top: 7px; min-height: 30px; padding: 8px;
+    border: 1px solid var(--hairline-2); border-radius: 2px; color: var(--muted);
+    font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700;
+    transition: color .16s var(--ease-out), border-color .16s var(--ease-out);
   }
+  .btn-report-kb { border-color: var(--human); color: var(--human); }
+  .btn-clear-reports:hover { color: var(--text); border-color: var(--muted); }
+  .btn-report-kb[hidden], .btn-clear-reports[hidden] { display: none; }
+
   .rail-left .disclosure-btn { width: 100%; justify-content: space-between; }
-  .rail-left .disclosure-body { position: static; width: auto; box-shadow: none;
-                                border: none; padding: 12px 0 0; background: none; }
+  .rail-left .disclosure-body { padding-top: 12px; }
+
   .attrib-note { font-size: 10px; color: var(--muted); line-height: 1.55; margin: 0; }
   .attrib-note strong { color: var(--text); font-weight: 600; }
-  .rail-right { grid-column: 3; grid-row: 2;
-                display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-                background: var(--surface); border: 1px solid var(--hairline);
-                position: static; width: auto; }
-  /* Two independently scrolling panes, so the alert feed can never be pushed
-     off the bottom by a 13-row zone list. */
-  .rail-pane { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-  .rail-pane + .rail-pane { border-top: 1px solid var(--hairline-2); }
-  .rail-pane::-webkit-scrollbar { width: 7px; }
-  .rail-pane::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
-  .pane-title { position: sticky; top: 0; z-index: 1; margin: 0; padding: 14px 16px 12px;
-                background: var(--surface); border-bottom: 1px solid var(--hairline); }
 
-  /* ---- hero: Figma 1:5, 135px tall, 24px sides / 16px top-bottom ---- */
+  /* ---- main column ---------------------------------------------------
+     Holds the hero and the citizen card only. Everything below them is
+     open map — that gap IS the layout, not a hole in it.
+     ------------------------------------------------------------------ */
+  .col-main {
+    grid-column: 2; grid-row: 2;
+    display: flex; flex-direction: column; gap: var(--gap);
+    min-height: 0; min-width: 0;
+    pointer-events: none;            /* the empty space below is live map */
+  }
+  .col-main > * { pointer-events: auto; }
+
+  /* ---- HERO · ACTION — the one dominant focal point ------------------
+     Figma 1:5, 135px tall, 24px sides / 16px top-bottom, 1px border in
+     the CURRENT LEVEL COLOUR. It is the only element on screen carrying
+     all three of: deepest elevation, a level-coloured edge, and a level
+     glow. Nothing else competes, which is what §3 item 10 and the
+     Apple/Aston Martin note both actually ask for — confidence through
+     depth and hierarchy, not through more colour.
+     ------------------------------------------------------------------ */
   .hero-card {
     flex: 0 0 auto; min-height: 135px;
-    background: var(--surface);
-    border: 1px solid var(--ac, var(--watch));
-    padding: 16px 24px;
+    padding: 18px 24px;
     display: flex; flex-direction: column; justify-content: center; gap: 6px;
-    transition: border-color 300ms var(--ease-out);
-    box-shadow: none; overflow: hidden;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, var(--ac-wash, transparent), transparent 62%),
+      var(--panel-bg);
+    /* Deepest stack in the app, plus an edge and a glow keyed to the
+       CURRENT LEVEL COLOUR (Final Layout item 2). --ac / --ac-glow are set
+       per render from the contract, so the depth cue and the IMD level can
+       never disagree. Declared here rather than as a :root token so those
+       two variables resolve on this element. */
+    box-shadow:
+      inset 0 1px 0 var(--edge-light-2),
+      0 0 0 1px var(--ac-line, var(--watch)),
+      0 3px 8px rgba(var(--shadow-rgb),.5),
+      0 22px 44px -14px rgba(var(--shadow-rgb),.55),
+      0 56px 100px -34px rgba(var(--shadow-rgb),.7),
+      0 0 56px -14px var(--ac-glow, transparent);
+    transition: box-shadow 280ms var(--ease-out), background 280ms var(--ease-out);
   }
-  .hero-title { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
-                letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
-  /* Figma 1:7 measured 57px tall -> 52px Archivo */
-  .hero-state { font-family: var(--ff-display); font-weight: 900; font-size: 52px;
-                line-height: 1.02; letter-spacing: -0.04em; color: var(--ac, var(--watch));
-                transition: color 300ms var(--ease-out); white-space: nowrap; }
-  /* No clamp. This is the instruction the whole forecast exists to deliver, and
-     a 2-line clamp silently cut it mid-word ("Switch off mains powe…") as soon
-     as the column narrowed. .hero-card is min-height, so it grows instead. */
-  .hero-action { margin: 0; font-size: 14px; line-height: 1.4; color: var(--text); }
+  .hero-title {
+    font-family: var(--ff-display); font-weight: 700; font-size: 11px;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+  /* Figma 1:7 measured 57px tall -> 52px Archivo Black. Tracking is
+     negative because large type reads too loose at its default. */
+  .hero-state {
+    font-family: var(--ff-display); font-weight: 900; font-size: 52px;
+    line-height: 1.02; letter-spacing: -0.045em; color: var(--ac, var(--watch));
+    transition: color 280ms var(--ease-out); white-space: nowrap;
+  }
+  /* No clamp. This is the instruction the whole forecast exists to
+     deliver; the card is min-height and grows instead of cutting it. */
+  .hero-action { margin: 0; font-size: 14px; line-height: 1.45; color: var(--text); }
   .hero-prep { color: var(--muted); }
   .hero-prep b { color: var(--text); font-weight: 600; }
 
-  /* ---- row: citizen 472 + the rainfall slot beside it ---- */
-  .row-two { flex: 0 0 auto; display: block; height: 95px; }
-  .nb-card {
-    background: var(--surface); border: 2px solid var(--human);
-    padding: 14px 20px;
-    display: flex; flex-direction: column; justify-content: space-between;
-    min-width: 0; box-shadow: none;
+  /* ---- neighbours reporting, at rail scale ---------------------------
+     The Figma frame gave this a 472x95 card in the content column, and the
+     Final Layout table still describes it that way. It stopped earning that
+     footprint: a fixed panel two-thirds the hero's width, permanently on the
+     map, to say "no reports yet". It is now a collapsed disclosure in the
+     reference cluster, with the count promoted into its header so the
+     citizen mechanic is still legible without standing on the substrate.
+     §2.3's "map as substrate" outranks a panel size when the two disagree.
+     ------------------------------------------------------------------ */
+  .nb-counts {
+    margin: 0 0 11px; font-size: 12px; line-height: 1.5; color: var(--muted);
   }
-  .nb-title { font-family: var(--ff-display); font-weight: 700; font-size: 12px;
-              letter-spacing: .1em; text-transform: uppercase; color: var(--human); margin: 0; }
-  .nb-counts { margin: 0; font-size: 13px; line-height: 1.35; color: var(--muted);
-               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nb-counts .nb-n { color: var(--human); font-family: var(--ff-mono); font-weight: 700; }
   .nb-counts .nb-zone { color: var(--text); }
-  .nb-btn { align-self: flex-start; background: none; padding: 0; color: var(--human);
-            font-family: var(--ff-display); font-weight: 700; font-size: 12px;
-            letter-spacing: .08em; text-transform: uppercase; }
-  .nb-btn:hover { color: var(--text); }
-  .nb-btn[aria-pressed="true"] { color: var(--text); }
-  .nb-note, .nb-text { display: contents; }
-
-  .cond-card { background: var(--surface); border: 1px solid var(--hairline);
-               padding: 12px 18px; display: flex; flex-direction: column;
-               justify-content: space-between; min-width: 0; }
-  .cond-title { font-family: var(--ff-display); font-weight: 700; font-size: 11px;
-                letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
-                margin: 0; display: flex; align-items: baseline; gap: 10px; }
-  .cond-read { letter-spacing: 0; text-transform: none; color: var(--text);
-               font-family: var(--ff-mono); font-size: 13px; font-weight: 600; }
-  .cond-read b { color: var(--safe); font-family: var(--ff-display); margin-left: 6px; }
-  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
-
-  /* ---- map fills the remaining height ---- */
-  .map-wrap { position: relative; flex: 1 1 auto; min-height: 0;
-              border: 1px solid var(--hairline); overflow: hidden; }
-  #map { position: absolute; inset: 0; background: var(--ink); z-index: 0; }
-  .leaflet-container { background: var(--ink); font-family: var(--ff-ui); }
-  .map-grade { position: absolute; inset: 0; z-index: 400; pointer-events: none;
-    background: radial-gradient(115% 85% at 50% 45%, rgba(8,13,20,0) 52%, rgba(8,13,20,.45) 90%, rgba(8,13,20,.72) 100%); }
-  .btn-report-map {
-    position: absolute; left: 14px; bottom: 14px; z-index: 500;
-    padding: 11px 18px; background: var(--human); color: #150826; border-radius: 2px;
-    font-family: var(--ff-display); font-weight: 800; font-size: 11px;
-    letter-spacing: .09em; text-transform: uppercase;
+  .nb-btn {
+    align-self: flex-start; background: none; padding: 0; color: var(--human);
+    font-family: var(--ff-display); font-weight: 700; font-size: 11px;
+    letter-spacing: .08em; text-transform: uppercase; text-align: left;
+    transition: color .16s var(--ease-out);
   }
-  .btn-report-map:hover { filter: brightness(1.1); }
-  .btn-report-map[aria-pressed="true"] { background: var(--text); color: var(--ink); }
-  .btn-report-kb, .btn-clear-reports {
-    position: absolute; left: 14px; bottom: 58px; z-index: 500;
-    padding: 8px 13px; border: 1px solid var(--human); border-radius: 2px; color: var(--human);
-    font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
-    background: rgba(8,13,20,.92); width: auto; margin: 0;
-  }
-  .btn-clear-reports { bottom: 96px; border-color: var(--hairline-2); color: var(--muted); }
-  .btn-report-kb[hidden], .btn-clear-reports[hidden] { display: none; }
-  .report-hint { display: none; }
+  .nb-btn:hover, .nb-btn[aria-pressed="true"] { color: var(--text); }
 
-  /* ---- scrubber: Figma 1:15, 60px tall ---- */
+  /* ---- the reference cluster -----------------------------------------
+     A quiet header plus the nowcast timestamp, then four disclosures. The
+     rule above it is the only divider in the rail: it marks where "act"
+     ends and "look up" begins.
+     ------------------------------------------------------------------ */
+  .block-ref-head {
+    border-top: 1px solid var(--hairline-2);
+    padding-top: 15px;
+  }
+  .block-ref-head .block-title { margin-bottom: 7px; }
+  /* Relocated out of the status strip. DIRECTION.md item 7 requires
+     generatedAt to be surfaced; it does not require it to be a headline. It
+     timestamps the reference group, so it leads it. */
+  .issued-line {
+    margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted);
+  }
+  .issued-line .num { color: var(--text); }
+
+  /* The count rides in the collapsed header, so the panel does not have to
+     be open to know whether anyone has reported. */
+  /* Count and caret travel together on the right, so the label keeps the
+     full left edge and never wraps to a second line in a 244px rail. */
+  .disc-tail { display: inline-flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+  .disc-count {
+    font-family: var(--ff-mono); font-weight: 700; font-size: 11px;
+    letter-spacing: 0; text-transform: none; color: var(--human);
+    min-width: 1.2em; text-align: right;
+  }
+  .disc-count[data-any="false"] { color: var(--muted); font-weight: 500; }
+
+  .block-credit { padding-top: 12px; padding-bottom: 14px; }
+  .block-credit .attrib-note { font-size: 9px; }
+
+  /* ---- floating map affordances -------------------------------------
+     These used to be absolutely positioned inside a boxed .map-wrap.
+     With the map full-bleed they anchor to the viewport instead, inside
+     the HUD's own row so they never collide with a rail.
+     ------------------------------------------------------------------ */
+  .map-hint, .map-notice {
+    grid-column: 2; grid-row: 2; z-index: 3;
+    justify-self: center; margin: 0;
+  }
+  .map-hint {
+    align-self: end; margin-bottom: 26px;
+    padding: 10px 18px; border-radius: 2px;
+    background: var(--human); color: var(--ink);
+    font-family: var(--ff-display); font-size: 11px;
+    letter-spacing: .09em; text-transform: uppercase; font-weight: 800;
+    box-shadow: 0 8px 24px -6px rgba(var(--shadow-rgb),.55), 0 0 40px -12px var(--human);
+  }
+  .map-notice {
+    align-self: start; max-width: 460px;
+    padding: 11px 15px; border-radius: var(--r);
+    background: var(--panel-solid);
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    box-shadow: inset 0 1px 0 var(--edge-light), 0 0 0 1px var(--watch),
+                0 14px 34px -12px rgba(var(--shadow-rgb),.5);
+    font-size: 12px; color: var(--text); line-height: 1.5;
+  }
+  .map-hint[hidden], .map-notice[hidden] { display: none; }
+
+  /* ---- SCRUBBER — Figma 1:15, 60px, full width ----------------------
+     §2.3: the scrubber gets the most horizontal real estate on screen
+     because it is what we want people looking at. It spans both rails
+     and floats clear of the bottom edge on its own elevation.
+     ------------------------------------------------------------------ */
   .scrub {
-    grid-column: 1 / -1; grid-row: 3; position: relative;
-    height: 60px; background: var(--surface); border: 1px solid var(--hairline);
-    display: flex; align-items: center; gap: 16px; padding: 0 18px;
+    grid-column: 1 / -1; grid-row: 3;
+    position: relative; min-height: 60px;
+    display: flex; align-items: center; gap: 18px; padding: 0 20px;
+    box-shadow: var(--elev-3);
   }
-  .scrub-label { font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-                 color: var(--muted); font-weight: 700; white-space: nowrap; }
-  .scrub-now { font-family: var(--ff-display); font-weight: 800; font-size: 20px;
-               letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .scrub-mode { font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-                font-weight: 700; white-space: nowrap; }
+  .scrub-label {
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; white-space: nowrap;
+  }
+  .scrub-now {
+    font-family: var(--ff-display); font-weight: 800; font-size: 22px;
+    letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap;
+    min-width: 58px;                 /* tabular + reserved width = zero shift */
+  }
+  .scrub-mode {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    font-weight: 700; white-space: nowrap; min-width: 62px;
+  }
   .scrub-track { position: relative; flex: 1 1 auto; min-width: 0; }
   .ticks { display: flex; justify-content: space-between; padding: 0 6px; margin-top: -4px; }
-  .scrub-disc { display: flex; gap: 6px; }
-  .scrub-disc .disclosure-btn { width: auto; padding: 7px 11px; border: 1px solid var(--hairline-2);
-                                border-radius: 2px; font-size: 10px; }
-  .scrub .disclosure-body {
-    position: absolute; right: 18px; bottom: 68px; width: 390px; z-index: 600;
-    background: var(--surface); border: 1px solid var(--hairline-2);
-    padding: 16px 18px; box-shadow: var(--panel-shadow); margin: 0;
-  }
-  /* Anchored to the MAP column, not the scrubber's left edge. .scrub spans
-     1 / -1, so left:18px put this over the left rail, where it collided with
-     the drainage note once that note ran long. 240px column + 16px gap moves
-     it clear of the rail at every viewport height without touching the grid. */
-  .sweep-cta { position: absolute; left: calc(240px + 16px); bottom: 68px; z-index: 600;
-               width: auto; margin: 0; padding: 11px 16px; }
 
+  /* Anchored past the left rail so it can never land on top of it. */
+  .sweep-cta {
+    position: absolute; left: calc(var(--rail-l) + var(--gap)); bottom: calc(100% + 12px);
+    z-index: 4; width: auto; margin: 0; padding: 11px 16px;
+  }
   /* ============================================================
      CONTROLS
      ============================================================ */
@@ -302,8 +490,16 @@
     background: var(--text); border: 4px solid var(--ink);
     box-shadow: 0 2px 8px rgba(0,0,0,.7);
   }
-  #scrub::-webkit-slider-thumb { background: var(--safe); }
-  #scrub::-moz-range-thumb { background: var(--safe); }
+  #scrub::-webkit-slider-thumb { background: var(--safe); transition: opacity 160ms var(--ease-out); }
+  #scrub::-moz-range-thumb { background: var(--safe); transition: opacity 160ms var(--ease-out); }
+  /* During the sweep the thumb and the light-line head disagree by design —
+     the control has five stops, the clock does not — and two indicators
+     three minutes apart read as a bug rather than as a distinction. The
+     head is the truthful one while the sweep runs, so the thumb steps back
+     and the head is the single thing to watch. It returns the moment the
+     scrubber is yours again. */
+  body.sweeping #scrub::-webkit-slider-thumb { opacity: 0.22; }
+  body.sweeping #scrub::-moz-range-thumb { opacity: 0.22; }
 
 
   .preset {
@@ -355,9 +551,25 @@
     width: 100%; text-align: left;
     transition: background .14s var(--ease-out);
   }
-  .zone-row:focus-visible { background: var(--surface-2); }
+  /* Hover and focus lift the row on the SAME elevation language as the
+     floating panels, one step down. No transform here on purpose: the rank
+     animation owns this element's transform, and a hover translate would
+     fight a row mid-reorder. The bar scaling carries the lift instead. */
+  .zone-row {
+    position: relative; z-index: 0;
+    transition: background .16s var(--ease-out), box-shadow .2s var(--ease-out);
+  }
+  .zone-row:focus-visible { background: var(--surface-2); box-shadow: var(--elev-row); z-index: 1; }
   @media (hover: hover) and (pointer: fine) {
-    .zone-row:hover { background: var(--surface-2); }
+    .zone-row:hover { background: var(--surface-2); box-shadow: var(--elev-row); z-index: 1; }
+  }
+  .zone-bar { transition: transform .2s var(--ease-out); }
+  .zone-row:hover .zone-bar,
+  .zone-row:focus-visible .zone-bar { transform: scaleY(1.16); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zone-row:hover .zone-bar,
+    .zone-row:focus-visible .zone-bar { transform: none; }
   }
   .zone-bar { width: 4px; height: 32px; border-radius: 1px; }
   .zone-name { font-size: 14px; font-weight: 600; line-height: 1.25; }
@@ -370,6 +582,28 @@
   }
   .zone-depth small { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
   .zone-level { font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 700; }
+
+  /* ---- zone detail, expanded under its own row ----------------------
+     A recess, not a nested card. DIRECTION.md §2.3 forbids nested cards,
+     so this reads as the row opening up rather than a second surface
+     stacked on the rail.
+     ------------------------------------------------------------------ */
+  .zone-detail {
+    padding: 0 16px 14px 28px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--hairline);
+    overflow: hidden;
+  }
+  .zone-detail[hidden] { display: none; }
+  .zd-level { margin: 0 0 10px; font-size: 11px; line-height: 1.5; font-weight: 600; }
+  .zd-dio {
+    margin-top: 11px; padding: 8px 12px;
+    border: 1px solid var(--hairline-2); border-radius: 2px; color: var(--text);
+    font-family: var(--ff-display); font-size: 10px; letter-spacing: .11em;
+    text-transform: uppercase; font-weight: 700;
+    transition: border-color .16s var(--ease-out), background .16s var(--ease-out);
+  }
+  .zd-dio:hover { border-color: var(--safe); color: var(--safe); }
 
   /* ============================================================
      ALERT FEED
@@ -395,38 +629,20 @@
   }
   .alert-acked::before { content: "✓"; }
 
-  /* An unhandled Warning pulses until a resident marks it seen — an
-     operational state borrowed from ATC collision alerts, not decoration. */
-  .alert[data-pulse="true"] .alert-level {
-    animation: pulse 1.5s ease-in-out infinite;
-    animation-delay: var(--pulse-delay, 0ms);
-  }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+  /* The acknowledge pulse is driven by Motion One, not by a keyframe here.
+     A CSS infinite animation can only be CANCELLED, which snaps the label
+     to whatever opacity it happened to be at — acknowledging mid-dim
+     flashed. See stopPulse(): it eases back to 1 from the current value. */
 
   .empty { padding: 16px; font-size: 12px; color: var(--muted); line-height: 1.55; }
 
   /* ============================================================
-     HUMAN-IN-THE-LOOP — violet, always outside the risk ramp.
+     HUMAN-IN-THE-LOOP — brass, always outside the risk ramp.
      ============================================================ */
-  .btn-report {
-    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 11px;
-    border: 1px solid var(--human); border-radius: 2px; color: var(--human);
-    font-family: var(--ff-display);
-    font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 700;
-    transition: background .16s var(--ease-out), color .16s var(--ease-out);
-  }
-  .btn-report:hover, .btn-report[aria-pressed="true"] { background: var(--human); color: var(--ink); }
-  .report-hint { font-size: 11px; color: var(--muted); margin-top: 9px; line-height: 1.5; }
-  .btn-report-kb { margin-top: 7px; }
-  .btn-report-kb[hidden], .btn-clear-reports[hidden] { display: none; }
-  .btn-clear-reports {
-    width: 100%; margin-top: 7px; padding: 8px;
-    border: 1px solid var(--hairline-2); border-radius: 2px; color: var(--muted);
-    font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600;
-    transition: color .16s var(--ease-out), border-color .16s var(--ease-out);
-  }
-  .btn-clear-reports:hover { color: var(--text); border-color: var(--muted); }
+  /* The citizen controls are styled once, in the LAYOUT section, as
+     .btn-report-rail / .btn-report-kb / .btn-clear-reports. A second
+     .btn-report ruleset used to sit here for a class no element carries. */
+  .report-hint { margin-top: 9px; }
   .report-count { color: var(--human); font-weight: 600; }
 
   /* ============================================================
@@ -452,7 +668,12 @@
 
   .legend-row { display: grid; grid-template-columns: 11px 1fr; gap: 9px; margin-bottom: 10px; align-items: start; }
   .legend-row:last-child { margin-bottom: 0; }
-  .legend-sw { width: 11px; height: 11px; border-radius: 2px; margin-top: 3px; }
+  /* The swatch shows the PUBLISHED IMD colour — it is the legend's whole
+     job — so it keeps the raw fill in both themes. On whitewash #FFC93C is
+     1.4:1 against the panel and would vanish, so it gains a hairline to
+     give it an edge without altering the colour being shown. */
+  .legend-sw { width: 11px; height: 11px; border-radius: 2px; margin-top: 3px;
+               box-shadow: 0 0 0 1px var(--hairline-2); }
   .legend-name { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
   .legend-band { font-size: 10px; color: var(--muted); font-family: var(--ff-mono); }
   .legend-desc { font-size: 10px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
@@ -490,7 +711,12 @@
   }
   .sweeping .leaflet-interactive { transition: none; }
 
-  /* Sweep progress — the light-line travelling the scrubber track. */
+  /* ---- §2.4 item 1 — the travelling light-line ----------------------
+     The line is the sweep's clock made visible. Its HEAD only lights up
+     while the sweep is running: at rest this is just a progress fill
+     showing which horizon you are on, and a permanent glowing dot would
+     claim something is happening when nothing is.
+     ------------------------------------------------------------------ */
   .scrub-track { position: relative; }
   .scrub-progress {
     position: absolute; left: 0; top: 11px; height: 4px;
@@ -498,14 +724,33 @@
     width: 0; pointer-events: none;
     box-shadow: 0 1px 4px rgba(0,0,0,.5);
   }
-
-  /* New alert entries. Transition-based and applied only to genuinely new
-     rows, so a re-render never restarts them. */
-  .alert {
-    opacity: 1; transform: translateY(0);
-    transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out);
+  .scrub-progress::after {
+    content: ""; position: absolute; right: -1px; top: 50%;
+    width: 3px; height: 15px; margin-top: -7.5px;
+    border-radius: 2px; background: var(--text);
+    box-shadow: 0 0 10px 1px var(--safe), 0 0 26px 6px var(--safe);
+    opacity: 0; transition: opacity 180ms var(--ease-out);
   }
-  .alert[data-enter="true"] { opacity: 0; transform: translateY(-8px); }
+  body.sweeping .scrub-progress::after { opacity: 1; }
+
+  /* ---- §2.4 item 3 — one pulse ring per threshold crossing ----------
+     Lives in Leaflet's overlay pane so rings sit in layer coordinates
+     and pan with the map. Emitted once per crossing INTO Alert or
+     Warning, then removed — sustained pulsing is reserved for
+     unacknowledged Warnings in the feed, and the two signals must stay
+     distinguishable.
+     ------------------------------------------------------------------ */
+  .ring-layer { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 450; }
+  .pulse-ring {
+    position: absolute; border-radius: 50%;
+    border: 2px solid currentColor; box-sizing: border-box;
+    pointer-events: none; will-change: transform, opacity;
+  }
+
+  /* Entry motion belongs to JS now — GSAP's stagger inside the sweep,
+     Motion One's spring outside it — so there is no CSS transition here to
+     fight it. Both libraries apply their first keyframe synchronously, so
+     a new row never flashes at full opacity before animating. */
 
   .leaflet-popup-content-wrapper {
     background: var(--surface); color: var(--text);
@@ -543,7 +788,7 @@
   .pin-report {
     width: 15px; height: 15px; border-radius: 50%;
     background: var(--human); border: 2px solid var(--ink);
-    box-shadow: 0 0 0 2px var(--human), 0 2px 6px rgba(0,0,0,.55);
+    box-shadow: 0 0 0 2px var(--human), 0 2px 6px rgba(var(--shadow-rgb),.55);
   }
 
   /* ============================================================
@@ -558,6 +803,25 @@
     transition: color .16s var(--ease-out), border-color .16s var(--ease-out), background .16s var(--ease-out);
   }
   .topnav a:hover { color: var(--text); border-color: var(--muted); background: var(--surface-2); }
+
+  /* Theme toggle — same 28px hit target and border language as .topnav
+     links, so it reads as part of the same control group rather than a
+     decoration bolted onto the strip. */
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 30px; flex: 0 0 auto;
+    border: 1px solid var(--hairline-2); border-radius: 2px;
+    color: var(--muted);
+    transition: color .16s var(--ease-out), border-color .16s var(--ease-out),
+                background .16s var(--ease-out);
+  }
+  .theme-toggle:hover { color: var(--text); border-color: var(--muted); background: var(--surface-2); }
+  .theme-toggle svg { width: 15px; height: 15px; fill: currentColor; }
+  /* Show the theme you would switch TO, which is the convention people
+     already read correctly: a sun means "go light". */
+  .theme-toggle .ic-moon { display: none; }
+  :root[data-theme="light"] .theme-toggle .ic-sun  { display: none; }
+  :root[data-theme="light"] .theme-toggle .ic-moon { display: inline; }
 
   .chip-offline {
     display: inline-flex; align-items: center; gap: 7px;
@@ -574,84 +838,101 @@
      off against rather than a degraded variant of it. */
   .chip-sim.is-live { color: var(--safe); }
 
-  /* ============================================================
-     LAYER 4 — DEPTH BADGES
-     Always-on, centred on each zone. Deliberately small and
-     high-contrast so they label the map without obscuring it.
-     ============================================================ */
-  .leaflet-tooltip.depth-badge {
-    background: rgba(8,13,20,.9);
-    border: 1px solid var(--hairline-2);
-    color: var(--text);
-    border-radius: 2px; padding: 2px 6px;
-    font-family: var(--ff-mono); font-size: 11px; font-weight: 700;
-    white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.6);
-    transition: border-color 300ms var(--ease-out), color 300ms var(--ease-out);
-  }
-  .leaflet-tooltip.depth-badge::before { display: none; }
+  /* Depth badges are deliberately absent from the map — the accepted Final
+     Layout removed them because permanent badges collided wherever zones sit
+     close together. Depth lives in the rail list. Their styles are gone with
+     them rather than left behind as dead rules. */
 
-  .map-hint {
-    position: absolute; bottom: calc(var(--scrub-h, 116px) + 22px); left: 50%; transform: translateX(-50%);
-    z-index: 500;
-    background: var(--human); color: var(--ink);
-    padding: 9px 17px; border-radius: 2px;
-    font-family: var(--ff-display);
-    font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 800;
-  }
-  .map-hint[hidden] { display: none; }
-
-  .map-notice {
-    position: absolute; top: calc(var(--strip-h) + 12px); left: 50%;
-    transform: translateX(-50%); z-index: 500;
-    max-width: 460px; margin: 0;
-    background: var(--surface); border: 1px solid var(--watch);
-    border-radius: 2px; padding: 11px 15px;
-    font-size: 12px; color: var(--text); line-height: 1.5;
-  }
-  .map-notice[hidden] { display: none; }
+  /* .map-hint / .map-notice are laid out in the LAYOUT section now — they
+     sit in the HUD grid cell the map shows through, rather than being
+     absolutely positioned inside a map box that no longer exists. */
 
   /* ============================================================
      RESPONSIVE
+
+     The rails stay unequal all the way down — the asymmetry is the
+     layout decision, not an artefact of having room for it. They only
+     shrink, until there is genuinely no room for three columns, at
+     which point §2.3's mobile note takes over: map on top, controls
+     stacked beneath it, scrubber pinned above the fold.
      ============================================================ */
   @media (max-width: 1280px) {
     :root { --rail-l: 216px; --rail-r: 312px; }
-    /* The 42px/26px stat sizes that used to live here were written for an
-       earlier layout where the stats were a hero number with room to breathe.
-       In the current 56px strip they cannot fit, so they belong to the <=900
-       regime below, where the strip becomes auto-height and wraps. */
+    .hero-state { font-size: 46px; }
   }
 
-  @media (max-width: 1040px) {
+  @media (max-width: 1100px) {
+    :root { --rail-l: 200px; --rail-r: 284px; }
     .issued { display: none; }
-    :root { --rail-l: 200px; --rail-r: 280px; }
+    .hero-state { font-size: 40px; }
+    .strip { gap: 14px; }
+    .strip-stats { gap: 18px; }
   }
 
+  /* ---- single column ------------------------------------------------
+     The map stops being a fixed substrate and becomes the top of a
+     scrolling document — there is no room to float anything over it at
+     this width, and a HUD that overlaps the only map you have is worse
+     than a stacked one. The scrubber stays pinned because it is still
+     the hero interaction.
+     ------------------------------------------------------------------ */
   @media (max-width: 900px) {
-    html, body { overflow: auto; }
-    #map { position: relative; height: 52dvh; inset: auto; }
-    .map-grade { position: absolute; height: 52dvh; }
-    .hud { position: static; }
-    .strip {
-      position: static; height: auto; flex-wrap: wrap; gap: 14px;
-      padding: 12px 14px; background: var(--ink);
-      border-bottom: 1px solid var(--hairline);
+    /* height:100% + overflow:auto made <body> the scroll container, which
+       broke window scrolling entirely — the page had 1693px of content and
+       would not move. Hand scrolling back to the document. */
+    html, body { height: auto; min-height: 100%; overflow: visible; }
+
+    #map { position: relative; inset: auto; height: 52dvh; width: 100%; }
+    .map-grade { position: absolute; inset: 0; height: 52dvh; }
+
+    .hud {
+      position: static; display: flex; flex-direction: column;
+      padding: var(--gap);
+      padding-bottom: calc(var(--scrub-h, 76px) + var(--gap) * 2);
     }
-    .wordmark { font-size: 24px; }
+
+    /* The stack order is the order the questions get asked: what should I
+       do, then what if it rains harder, then which zones. */
+    .strip     { order: 0; flex-wrap: wrap; min-height: 0; padding: 12px 14px; gap: 12px; }
+    .col-main  { order: 1; }
+    .rail-left { order: 2; align-self: stretch; max-height: none; overflow: visible; }
+    /* The rail grows with its content and the DOCUMENT scrolls. Its two
+       inner panes are `flex: 1 1 0`, which collapses to zero height
+       without a definite container height — on desktop the grid supplies
+       one, here nothing does, and the zone list vanished entirely. */
+    .rail-right { order: 3; max-height: none; overflow: visible; }
+    .rail-pane  { flex: 0 0 auto; overflow: visible;
+                  -webkit-mask-image: none; mask-image: none; }
+    .pane-title { position: static; }
+
+    .wordmark { font-size: 22px; }
     .strip-stats { width: 100%; margin-left: 0; gap: 20px; }
-    /* Auto-height wrapped strip — there IS room for a big number here, so the
-       phone keeps exactly the sizes it had before the <=1280 block was cleaned.
-       line-height is reset to normal because the base rule pins it to 18px for
-       the fixed-height strip, which would squash a 38px number. */
-    .stat-hero .stat-value { font-size: 38px; line-height: normal; }
-    .stat-pop .stat-value { font-size: 26px; line-height: normal; }
-    .rail {
-      position: static; width: auto; margin: var(--gap); bottom: auto;
-      max-height: none; overflow: visible;
+    /* The strip is auto-height and wrapped here, so there IS room for a
+       statement number — unlike the fixed 56px band on desktop. */
+    .stat-hero .stat-value { font-size: 34px; line-height: 1.05; }
+    .stat-pop  .stat-value { font-size: 22px; line-height: 1.1; }
+    .topnav { margin-left: 0; }
+
+    .hero-state { font-size: 40px; white-space: normal; }
+
+    .scrub {
+      position: fixed; left: var(--gap); right: var(--gap); bottom: var(--gap);
+      z-index: 30; flex-wrap: wrap; gap: 10px 14px; padding: 12px 16px;
     }
-    .scrub { position: static; margin: var(--gap); }
-    /* Single column below 900px — there is no left rail to clear. */
-    .sweep-cta { left: 18px; }
-    .map-hint { position: fixed; top: 12px; }
+    .btn-run { margin-left: auto; }
+    .sweep-cta { left: 16px; right: 16px; bottom: calc(100% + 10px); }
+
+    .map-hint, .map-notice { position: fixed; left: 50%; transform: translateX(-50%); }
+    .map-hint { top: auto; bottom: calc(var(--scrub-h, 76px) + var(--gap) * 2); margin: 0; }
+    .map-notice { top: 12px; margin: 0; max-width: calc(100vw - 32px); }
+  }
+
+  @media (max-width: 560px) {
+    :root { --gap: 12px; }
+    .hero-state { font-size: 34px; }
+    .hero-card { padding: 16px 18px; min-height: 0; }
+    .scrub-label, .scrub-mode { display: none; }
+    .btn-run { width: 100%; margin-left: 0; justify-content: center; }
   }
 
   /* DIRECTION.md §2.4: reduced motion drops MOVEMENT but keeps opacity, so
@@ -779,7 +1060,7 @@
   console floats on it.
   OWN-WORLD: Wet-asphalt ink (#0A0F16) under a full-bleed dark map. IMD's
   warning ramp (cyan/yellow/orange/red) at full saturation is the only
-  chromatic system; violet is reserved exclusively for human action. Archivo
+  chromatic system; brass is reserved exclusively for human action. Archivo
   at heavy weights for statement numbers, IBM Plex Mono for data.
   STORY: A resident reads which Kochi zones flood in the next two hours, pins
   observed ground truth, and marks the alerts they are acting on.
@@ -793,12 +1074,19 @@
 -->
 
 
+<!-- ===== BASE LAYER =====================================================
+     DIRECTION.md §2.3: "full-bleed map as substrate, panels float on it
+     with real edges." The map is the viewport, not a panel in a column.
+     Everything after this floats over it.
+     ==================================================================== -->
+<div id="map" role="application" aria-label="Kochi flood risk map"></div>
+<div class="map-grade" aria-hidden="true"></div>
+
 <div class="hud">
 
   <!-- ===== status strip: spans both columns ===== -->
-  <header class="strip">
+  <header class="strip panel">
     <h1 class="wordmark">JAL<span>NETRA</span></h1>
-    <div class="issued">Nowcast <span class="num" id="issued-at">—</span> · valid to <span class="num" id="valid-to">—</span> IST</div>
     <span class="chip-sim" id="source-chip" title="No live rainfall feed and no model output. Every figure is a deterministic simulation.">Simulated</span>
     <span class="chip-offline" id="offline-chip">
       <span class="dot"></span><span id="offline-text">Offline-ready</span>
@@ -819,12 +1107,27 @@
       </div>
     </div>
     <nav class="topnav" aria-label="Console navigation">
+      <!-- Small and quiet on purpose: this is a console, and the theme
+           control must not compete with the hero for attention. -->
+      <button class="theme-toggle" id="theme-toggle" type="button"
+              aria-pressed="false" title="Switch theme">
+        <svg class="ic-sun" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="3.2"/>
+          <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M12.9 3.1l-1.4 1.4M4.5 11.5l-1.4 1.4"/>
+          </g>
+        </svg>
+        <svg class="ic-moon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M13.4 9.6A5.6 5.6 0 0 1 6.4 2.6a5.8 5.8 0 1 0 7 7Z"/>
+        </svg>
+        <span class="visually-hidden" id="theme-label">Switch to light theme</span>
+      </button>
       <a href="admin.html">Admin</a><a href="login.html">Sign out</a>
     </nav>
   </header>
 
   <!-- ===== left rail ===== -->
-  <aside class="rail-left">
+  <aside class="rail-left panel">
     <div class="block">
       <h2 class="block-title">Rainfall scenario</h2>
       <div class="rain-readout">
@@ -842,8 +1145,35 @@
       <button class="btn-report-rail" id="btn-report" aria-pressed="false">Report waterlogging</button>
       <button class="btn-report-kb" id="btn-report-zone" hidden></button>
       <button class="btn-clear-reports" id="btn-clear-reports" hidden>Clear reports</button>
-      <p class="attrib-note" style="margin-top:9px">Ground truth from the street.
+      <!-- setReportMode() has been building live copy for #report-hint —
+           including the "n reports placed" count — against an element that
+           did not exist, so the count never rendered anywhere near the
+           control that produces it. This is that element. -->
+      <p class="attrib-note report-hint" id="report-hint">Ground truth from the street.
         Drops a pin and nudges nearby zone risk — client-side only, never sent anywhere.</p>
+    </div>
+
+    <!-- ===== reference / context cluster =====================================
+         Everything below this line is supporting material, not a control: the
+         same collapsed-by-default disclosure pattern throughout, so the rail
+         reads as "act here, look things up down there" rather than as a strip
+         of unrelated boxes. Nowcast timing leads it because it timestamps
+         everything else in the group.
+         ==================================================================== -->
+    <div class="block block-ref-head">
+      <h2 class="block-title">Reference</h2>
+      <p class="issued-line">Nowcast <span class="num" id="issued-at">—</span>
+        · valid to <span class="num" id="valid-to">—</span> IST</p>
+    </div>
+
+    <div class="block">
+      <button class="disclosure-btn" id="nb-btn" aria-expanded="false" aria-controls="nb-body">
+        <span>Nearby reports</span>
+        <span class="disc-tail"><span class="disc-count" id="nb-count">0</span><span class="caret">▶</span></span></button>
+      <div class="disclosure-body" id="nb-body" hidden>
+        <p class="nb-counts" id="nb-counts">—</p>
+        <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
+      </div>
     </div>
 
     <div class="block">
@@ -872,16 +1202,21 @@
     </div>
 
     <div class="block">
-      <h2 class="block-title">Drainage</h2>
-      <p class="attrib-note">
-        The <strong>Thevara–Perandoor Canal</strong> is Kochi Corporation's main drainage
-        artery — silted, encroached, and backs up at high tide. The
-        <strong>Mullassery Canal</strong> has a reverse slope, pushing water into the TP
-        Canal rather than away from it. Routes approximate, from Kerala Irrigation
-        Department material.
-      </p>
-      <p class="attrib-note" style="margin-top:9px; font-size:9px">
-        © OpenStreetMap contributors · © CARTO</p>
+      <button class="disclosure-btn" id="drain-btn" aria-expanded="false" aria-controls="drain-body">
+        <span>Drainage</span><span class="caret">▶</span></button>
+      <div class="disclosure-body" id="drain-body" hidden>
+        <p class="attrib-note">
+          The <strong>Thevara–Perandoor Canal</strong> is Kochi Corporation's main drainage
+          artery — silted, encroached, and backs up at high tide. The
+          <strong>Mullassery Canal</strong> has a reverse slope, pushing water into the TP
+          Canal rather than away from it. Routes approximate, from Kerala Irrigation
+          Department material.
+        </p>
+      </div>
+    </div>
+
+    <div class="block block-credit">
+      <p class="attrib-note">© OpenStreetMap contributors · © CARTO</p>
     </div>
   </aside>
 
@@ -889,7 +1224,7 @@
   <div class="col-main">
 
     <!-- Figma 1:5 — Hero · Action, 812x135 -->
-    <section class="hero-card" id="hero-card" aria-labelledby="hero-title">
+    <section class="hero-card panel" id="hero-card" aria-labelledby="hero-title">
       <h2 class="hero-title" id="hero-title">What should you do right now?</h2>
       <div class="hero-state" id="hero-state">—</div>
       <p class="hero-action"><span id="hero-action">—</span>
@@ -898,28 +1233,19 @@
 
     <!-- Figma 1:9 — Citizen · Reports, 472x95, plus the rainfall slot the
          design leaves empty beside it. -->
-    <div class="row-two">
-      <section class="nb-card" aria-labelledby="nb-title">
-        <h2 class="nb-title" id="nb-title">Your neighbours are reporting</h2>
-        <p class="nb-counts" id="nb-counts">—</p>
-        <button class="nb-btn" id="btn-report-hero">Report your situation now</button>
-      </section>
-
-    </div>
-
-    <!-- Figma 1:13 — Map · Kochi, 1000 wide. Extended to fill the gap the
-         design leaves between the map and the scrubber. -->
-    <div class="map-wrap">
-      <div id="map" role="application" aria-label="Kochi flood risk map"></div>
-      <div class="map-grade" aria-hidden="true"></div>
-      <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
-      <p class="map-notice" id="map-notice" role="status" hidden></p>
-    </div>
-
+    <!-- The neighbours panel used to sit here as a fixed 472x95 card. It is
+         now a collapsed disclosure in the left rail's reference cluster: the
+         citizen mechanic stays visible (its count is in the header) without
+         standing on the map. Everything below the hero is open substrate —
+         that gap IS the layout, and it is bigger for this. -->
   </div>
 
+  <!-- Map affordances float in the same grid cell the map shows through. -->
+  <div class="map-hint" id="map-hint" hidden>Click the map to place your report</div>
+  <p class="map-notice" id="map-notice" role="status" hidden></p>
+
     <!-- Figma 1:15 — Scrubber · Timeline, 1000x60 -->
-  <div class="scrub">
+  <div class="scrub panel">
     <span class="scrub-label">Horizon</span>
     <span class="scrub-now" id="scrub-now">NOW</span>
     <span class="scrub-mode" id="scrub-mode">observed</span>
@@ -977,6 +1303,23 @@
 <script src="vendor/leaflet.js"></script>
 <!-- Three.js r128, vendored locally: the diorama must work with no network. -->
 <script src="vendor/three.r128.min.js"></script>
+
+<!-- Motion One 13.1.0 (UMD, global `Motion`) and GSAP 3.15.0 (UMD, global
+     `gsap`), both vendored. Same rule as everything else in vendor/: no CDN
+     in the critical path, because PRODUCT.md picked this stack for stage
+     reliability. Their division of labour is deliberate and enforced by
+     review, not by convention alone — see vendor/NOTICE.md:
+       Motion One  -> interactive state. Springs, interruptible, retargets
+                      from the current value. Disclosures, press feedback,
+                      the acknowledge pulse, the sweep CTA.
+       GSAP        -> the two-hour sweep ONLY (DIRECTION.md §2.4): the clock
+                      driving continuous fill interpolation, the staggered
+                      feed drops, and the one-shot pulse rings. Its timeline
+                      and stagger utilities are the right tool for that one
+                      sequence and it is used nowhere else.
+     Lenis was considered and rejected: a console has no scroll narrative. -->
+<script src="vendor/motion.min.js"></script>
+<script src="vendor/gsap.min.js"></script>
 <script>
 /* ==================================================================
    JalNetra — flood nowcast console
@@ -1047,12 +1390,38 @@ const MULLASSERY_CANAL = [
    Wording follows IMD (No warning / Watch / Alert / Warning). Contract ids
    stay frozen. Consequence lines follow GOV.UK's what + what-to-do pattern.
    -------------------------------------------------------------------- */
+/* Each level carries TWO colour handles, and the difference matters:
+
+     .fill — the IMD colour itself, identical in both themes. Map polygons,
+             legend swatches and zone bars use it, so a swatch on screen is
+             the colour IMD publishes, whichever theme is active.
+     .ink  — the same level set as TEXT. In dark mode it resolves to the same
+             value; in light mode to a darkened form of the SAME hue, because
+             #FFC93C on whitewash is 1.4:1 and simply unreadable.
+
+   Both are CSS custom properties rather than literals, so switching theme
+   restyles every label without a re-render. Contract ids are untouched. */
 const LEVELS = {
-  safe:   { id:'safe',   imd:'No warning', color:'#17E0CC', band:'under 10 cm', what:'No significant water expected.', act:'No action needed.' },
-  watch:  { id:'watch',  imd:'Watch',      color:'#FFC93C', band:'10–24 cm',    what:'Surface water on roads.',        act:'Drive slowly. Stay updated.' },
-  high:   { id:'high',   imd:'Alert',      color:'#FF7A1A', band:'25–49 cm',    what:'Waterlogging. Roads risky.',     act:'Avoid low-lying routes.' },
-  severe: { id:'severe', imd:'Warning',    color:'#FF2E4D', band:'50 cm+',      what:'Deep water. Roads impassable.',  act:'Take action now. Danger to life.' }
+  safe:   { id:'safe',   imd:'No warning', v:'safe',    fill:'var(--safe)',    ink:'var(--safe)',        band:'under 10 cm', what:'No significant water expected.', act:'No action needed.' },
+  watch:  { id:'watch',  imd:'Watch',      v:'watch',   fill:'var(--watch)',   ink:'var(--watch-ink)',   band:'10–24 cm',    what:'Surface water on roads.',        act:'Drive slowly. Stay updated.' },
+  high:   { id:'high',   imd:'Alert',      v:'alert',   fill:'var(--alert)',   ink:'var(--alert-ink)',   band:'25–49 cm',    what:'Waterlogging. Roads risky.',     act:'Avoid low-lying routes.' },
+  severe: { id:'severe', imd:'Warning',    v:'warning', fill:'var(--warning)', ink:'var(--warning-ink)', band:'50 cm+',      what:'Deep water. Roads impassable.',  act:'Take action now. Danger to life.' }
 };
+
+/* Leaflet, Three.js and the pulse rings need REAL colour values, not var()
+   strings. Resolve from the live stylesheet and cache per theme, so a theme
+   switch re-reads once rather than on every animation frame. */
+let _cssCache = {}, _cssTheme = null;
+function cssColor(name) {
+  const theme = document.documentElement.dataset.theme || 'dark';
+  if (theme !== _cssTheme) { _cssCache = {}; _cssTheme = theme; }
+  if (!_cssCache[name]) {
+    _cssCache[name] = getComputedStyle(document.documentElement)
+      .getPropertyValue('--' + name).trim() || '#888888';
+  }
+  return _cssCache[name];
+}
+const levelFill = lvl => cssColor(LEVELS[lvl].v);
 
 /* Depth bands, in cm. Anchored to what the water actually does to a street:
    ~15 cm and vehicles lose traction, ~30 cm and most cars stall, ~50 cm and
@@ -1084,17 +1453,21 @@ const OFFSETS = [0, 30, 60, 90, 120];
    The forecast's job is to end in an instruction; a number without one
    is an unfinished thought.
    ------------------------------------------------------------------ */
+/* `colour` is the theme-aware INK — it sets a 52px word and a 1px edge,
+   both of which are read like type and both of which have to stay legible
+   on whitewash. `glow` names the raw IMD token, because the card's glow is
+   a light source rather than a mark and wants the published colour. */
 const ACTIONS = {
-  safe:   { state: 'SAFE',    colour: '#17E0CC',
+  safe:   { state: 'SAFE',    colour: 'var(--safe)',        glow: 'safe',
             action: 'Nothing to do. Know your route out.',
             prep:   'Save the Corporation control room number. Learn which way is higher ground from your door.' },
-  watch:  { state: 'WATCH',   colour: '#FFC93C',
+  watch:  { state: 'WATCH',   colour: 'var(--watch-ink)',   glow: 'watch',
             action: 'Move valuables and documents off the floor.',
             prep:   'Charge phones. Fill drinking water. Park vehicles higher while roads are still clear.' },
-  high:   { state: 'PREPARE', colour: '#FF7A1A',
+  high:   { state: 'PREPARE', colour: 'var(--alert-ink)',   glow: 'alert',
             action: 'Pack your go-bag now, before water reaches the road.',
             prep:   'Documents, medicines, valuables, food, water, torch, charger, sturdy shoes, raincoat.' },
-  severe: { state: 'ACT NOW', colour: '#FF2E4D',
+  severe: { state: 'ACT NOW', colour: 'var(--warning-ink)', glow: 'warning',
             action: 'Move to higher ground or an upper floor immediately.',
             prep:   'Take the go-bag and go. Switch off mains power. Do not enter the water to collect anything.' }
 };
@@ -1305,8 +1678,28 @@ const state = {
    is guarded: if Leaflet is missing or throws, mapOK stays false, the paint
    functions skip the map, and the rails, scrubber, stats and feed still work.
    The forecast is readable without a basemap; a blank page is not. */
-let map = null, mapOK = false, reportLayer = null;
+let map = null, mapOK = false, reportLayer = null, tileLayer = null;
 const zoneLayers = new Map();
+const zoneCasings = new Map();
+const canalLines = [];
+
+/* CartoDB basemaps, keyless, one per theme. dark_matter under the dark
+   console, positron under the light one — running the dark tiles under a
+   whitewash UI, or filtering them to fake a light set, produced a muddy
+   grey slab that no amount of zone contrast could rescue.
+
+   Honest note, unchanged from the previous pass: these tiles ARE a runtime
+   network fetch, which is the one place this build does not meet
+   PRODUCT.md's "no network dependency at runtime". Vendoring a tile set for
+   Kochi across the zoom range is tens of megabytes, so it is not a fix that
+   fits. The map bootstrap is wrapped so the console renders its entire
+   forecast with no basemap at all, which is the degradation that rule
+   actually exists to guarantee. */
+const TILES = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+};
+const currentTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 
 try {
   if (!window.L) throw new Error('Leaflet failed to load');
@@ -1316,20 +1709,44 @@ try {
     zoomControl: false, attributionControl: false
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd', maxZoom: 19
-  }).addTo(map);
+  tileLayer = L.tileLayer(TILES[currentTheme()], { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
 
-  L.polyline(TP_CANAL, { color: '#2E8CA6', weight: 4, opacity: 0.9, lineJoin: 'round' })
-    .addTo(map).bindTooltip('Thevara–Perandoor Canal: main drainage artery', { sticky: true });
+  /* Two panes below the default overlay pane, so a zone's casing can sit
+     UNDER every zone rather than only under its own — otherwise casings
+     punch holes in neighbouring zones wherever the twelve hotspots overlap,
+     which along the canal is most of them. */
+  map.createPane('casing');   map.getPane('casing').style.zIndex   = 398;
+  map.createPane('canal');    map.getPane('canal').style.zIndex    = 399;
 
-  L.polyline(MULLASSERY_CANAL, { color: '#2E8CA6', weight: 2.5, opacity: 0.65, dashArray: '6,5', lineJoin: 'round' })
-    .addTo(map).bindTooltip('Mullassery Canal: reverse slope, drains into TP Canal', { sticky: true });
+  /* The canal is the second-read moment (§2.4): a casing stroke under a
+     coloured core makes it hold its own line against either basemap without
+     raising its weight to where it competes with the zones. */
+  const canalCasing = { color: 'var-ground', weight: 7, opacity: .5, lineJoin: 'round', pane: 'canal' };
+  for (const [pts, w, dash, label] of [
+    [TP_CANAL, 4, null, 'Thevara–Perandoor Canal: main drainage artery'],
+    [MULLASSERY_CANAL, 2.5, '6,5', 'Mullassery Canal: reverse slope, drains into TP Canal']
+  ]) {
+    const casing = L.polyline(pts, { ...canalCasing, weight: w + 3 }).addTo(map);
+    const core = L.polyline(pts, {
+      color: '#000', weight: w, opacity: .95, lineJoin: 'round',
+      ...(dash ? { dashArray: dash } : {}), pane: 'canal'
+    }).addTo(map).bindTooltip(label, { sticky: true });
+    canalLines.push({ casing, core });
+  }
 
   ZONES.forEach(z => {
+  /* Casing first: a ring of the page ground colour, drawn under everything,
+     which is what gives a zone a real edge against whichever basemap is
+     active instead of a coloured blob fading into it. */
+  const casing = L.circle([z.lat, z.lng], {
+    radius: 760, color: '#000', weight: 6, opacity: .55, fill: false, pane: 'casing',
+    interactive: false
+  }).addTo(map);
+  zoneCasings.set(z.id, casing);
+
   const circle = L.circle([z.lat, z.lng], {
-    radius: 760, color: LEVELS.safe.color, weight: 1.5, opacity: 0.9,
-    fillColor: LEVELS.safe.color, fillOpacity: 0.12
+    radius: 760, color: '#888', weight: 2, opacity: 0.9,
+    fillColor: '#888', fillOpacity: 0.12
   }).addTo(map);
   // Clicking a zone on the map goes straight to the street-level view.
   // The reference numbers live in the right-rail detail panel instead of a
@@ -1353,7 +1770,7 @@ try {
   });
 
   map.on('tileerror', () => {
-    document.getElementById('map').style.background = '#080D14';
+    document.getElementById('map').style.background = cssColor('ink');
     showMapNotice('Basemap tiles unavailable — forecast values are unaffected.');
   });
 
@@ -1480,6 +1897,11 @@ function renderAt(horizonMin) {
     if (worst) state.selectedZone = worst.id;
   }
 
+  // §2.4 item 3 — fire a ring the instant a zone crosses INTO Alert or
+  // Warning. Done before painting so the ring and the new fill colour
+  // land on the same frame.
+  checkCrossings(payload);
+
   paintHero(payload);
   paintNeighbours();
   paintOffline(payload);
@@ -1504,18 +1926,48 @@ async function render() {
   renderAt(state.horizon);
 }
 
+/* Zones have to be readable at a GLANCE — that is the product's whole
+   premise. Three things changed from the values that shipped before:
+
+     - the stroke is now fully opaque at every level. It used to start at
+       0.4 and only reach full opacity at risk 1.0, so a Watch zone had a
+       half-transparent edge and dissolved into the basemap.
+     - the stroke is heavier (2.2-4.2px, was 1.5-3.0).
+     - fill starts at 0.20 rather than 0.12, so a low-risk zone still reads
+       as a zone rather than a smudge.
+
+   Paired with the ground-coloured casing underneath and the softened
+   vignette, a zone now sits ON the basemap in both themes. */
 function paintMap(payload) {
   payload.zones.forEach(z => {
     const layer = zoneLayers.get(z.id);
     if (!layer) return;
-    const c = LEVELS[z.level].color;
+    const c = levelFill(z.level);
     layer.setStyle({
       color: c, fillColor: c,
-      fillOpacity: 0.12 + z.risk * 0.52,
-      opacity: 0.4 + z.risk * 0.6,
-      weight: 1.5 + z.risk * 1.5
+      fillOpacity: 0.20 + z.risk * 0.48,
+      opacity: 1,
+      weight: 2.2 + z.risk * 2.0
     });
+    const casing = zoneCasings.get(z.id);
+    if (casing) casing.setStyle({ weight: 6 + z.risk * 3, opacity: 0.42 + z.risk * 0.3 });
   });
+}
+
+/* Everything on the map that is drawn with a resolved colour rather than a
+   CSS variable has to be re-styled when the theme flips: the tiles, the
+   canal casing and core, and the zone casings. Zone fills come back through
+   paintMap, which re-reads the level colours from the new theme. */
+function applyMapTheme() {
+  if (!mapOK) return;
+  const ground = cssColor('ink'), canal = cssColor('canal');
+  if (tileLayer) tileLayer.setUrl(TILES[currentTheme()]);
+  canalLines.forEach(({ casing, core }) => {
+    casing.setStyle({ color: ground });
+    core.setStyle({ color: canal });
+  });
+  zoneCasings.forEach(c => c.setStyle({ color: ground }));
+  if (state.data) paintMap(state.data);
 }
 
 /* LAYER 1 — driven by the WORST zone, because the card answers a city-wide
@@ -1525,8 +1977,16 @@ function paintHero(payload) {
   if (!worst) return;
   const A = ACTIONS[worst.level], L2 = LEVELS[worst.level];
   const card = document.getElementById('hero-card');
-  card.style.setProperty('--ac', A.colour);
-  card.style.setProperty('--ac-wash', A.colour + '26');
+  card.style.setProperty('--ac', A.colour);            // 52px word — needs the ink
+  card.style.setProperty('--ac-line', `var(--${A.glow})`); // 1px edge — a mark, not type
+  // The wash and the glow are LIGHT, not type, so they take the published
+  // IMD colour rather than the darkened ink. Resolved to a literal because
+  // an alpha suffix cannot be appended to a var() reference.
+  const glow = cssColor(A.glow);
+  card.style.setProperty('--ac-wash', glow + '1F');
+  // Kept faint at Watch and only opened up at Warning — saturation
+  // discipline applies to light as much as to pigment.
+  card.style.setProperty('--ac-glow', glow + (worst.level === 'severe' ? '4D' : '26'));
   document.getElementById('hero-state').textContent = A.state;
   document.getElementById('hero-action').textContent = A.action;
   document.getElementById('hero-prep').textContent = A.prep;
@@ -1565,6 +2025,20 @@ function paintNeighbours() {
   const el = document.getElementById('nb-counts');
   const note = document.getElementById('nb-note') || { };
 
+  /* The disclosure is collapsed by default, so the count has to live in its
+     header — otherwise the citizen mechanic is invisible until someone
+     thinks to open it, which is exactly the failure mode that made this a
+     permanent panel in the first place. */
+  const badge = document.getElementById('nb-count');
+  if (badge) {
+    const n = state.reports.length;
+    badge.textContent = String(n);
+    badge.dataset.any = String(n > 0);
+    const btn = document.getElementById('nb-btn');
+    if (btn) btn.setAttribute('aria-label',
+      `Nearby reports: ${n === 1 ? '1 report' : n + ' reports'} on this device`);
+  }
+
   if (!counts.size) {
     el.innerHTML = '<span style="color:var(--muted)">No reports on this device yet.</span>';
     if (note) note.textContent = '';
@@ -1601,7 +2075,7 @@ function paintStrip(payload) {
   depthEl.innerHTML = worst
     ? Math.round(worst.depthCm) + '<small> cm</small>'
     : '—';
-  depthEl.style.color = worst ? LEVELS[worst.level].color : 'var(--text)';
+  depthEl.style.color = worst ? LEVELS[worst.level].ink : 'var(--text)';
   document.getElementById('stat-worst').textContent =
     worst && worst.depthCm > 0 ? worst.name : 'no water predicted';
 
@@ -1661,6 +2135,15 @@ function buildZoneRows() {
     zoneDetEls.set(seed.id, det);
   });
   document.getElementById('zone-count').textContent = ZONES.length;
+
+  /* Rows arrive in rank order rather than all at once — the same 48ms
+     stagger the alert feed uses in §2.4, so the two panes in the rail
+     move with one rhythm instead of two. Plays once, on build. */
+  if (HAS_MOTION && !REDUCE.matches) {
+    Motion.animate(Array.from(zoneRowEls.values()),
+      { opacity: [0, 1], y: [-6, 0] },
+      { type: 'spring', bounce: 0, duration: 0.42, delay: Motion.stagger(0.048) });
+  }
 }
 
 function paintZoneList(payload) {
@@ -1670,11 +2153,11 @@ function paintZoneList(payload) {
     const row = zoneRowEls.get(z.id);
     if (!row) return;
     const L2 = LEVELS[z.level];
-    row.querySelector('.zone-bar').style.background = L2.color;
+    row.querySelector('.zone-bar').style.background = L2.ink;
     row.querySelector('.zone-depth-n').textContent = Math.round(z.depthCm);
     const lvl = row.querySelector('.zone-level');
     lvl.textContent = L2.imd;
-    lvl.style.color = L2.color;
+    lvl.style.color = L2.ink;
     row.querySelector('.zone-nudge').hidden = !z.nudged;
   });
 
@@ -1683,16 +2166,70 @@ function paintZoneList(payload) {
   const key = ranked.map(z => z.id).join(',');
   if (key !== zoneOrderKey) {
     zoneOrderKey = key;
-    const list = document.getElementById('zone-list');
-    ranked.forEach(z => {
-      list.appendChild(zoneRowEls.get(z.id));
-      list.appendChild(zoneDetEls.get(z.id));
-    });
+    reorderZoneRows(ranked);
   }
+}
+
+/* ---- rank changes, animated -----------------------------------------
+   The ranking shifting IS the forecast working. It used to happen in a
+   single frame, silently: run the sweep and the rail simply contained
+   different rows afterwards, with nothing to say Kaloor had overtaken
+   Edappally. Rows now travel to their new position, which turns a silent
+   re-render into the visible consequence of the model recalculating.
+
+   FLIP, with two details that matter:
+
+   1. FIRST is measured from getBoundingClientRect(), which INCLUDES any
+      transform a row is still carrying from an in-flight reorder. A row
+      caught mid-move therefore continues from where it visually is —
+      never from where it would have been. Transforms are cleared before
+      LAST is measured, so LAST is the true layout position.
+   2. A spring, not a duration. New data arriving mid-flight re-targets
+      instead of restarting, which is the whole reason this is not a
+      keyframe.
+   -------------------------------------------------------------------- */
+function reorderZoneRows(ranked) {
+  const list = document.getElementById('zone-list');
+  const els = [];
+  ranked.forEach(z => {
+    const row = zoneRowEls.get(z.id), det = zoneDetEls.get(z.id);
+    if (row) els.push(row);
+    if (det) els.push(det);
+  });
+
+  if (!HAS_MOTION || REDUCE.matches) {
+    els.forEach(el => list.appendChild(el));
+    return;
+  }
+
+  const moving = els.filter(el => !el.hidden);
+  const first = new Map(moving.map(el => [el, el.getBoundingClientRect().top]));
+
+  els.forEach(el => list.appendChild(el));
+
+  moving.forEach(el => { el.style.transform = 'none'; });
+  const last = new Map(moving.map(el => [el, el.getBoundingClientRect().top]));
+
+  moving.forEach(el => {
+    const delta = first.get(el) - last.get(el);
+    if (Math.abs(delta) < 0.5) { el.style.transform = ''; return; }
+    el.style.willChange = 'transform';
+    Motion.animate(el, { y: [delta, 0] },
+      { type: 'spring', bounce: 0.16, duration: 0.52 })
+      .finished.then(() => { el.style.transform = ''; el.style.willChange = ''; })
+      .catch(() => {});
+  });
 }
 
 let feedSig = '';
 let feedIds = new Set();
+
+/* One definition of "the feed changed", shared by the render path and by
+   the in-place acknowledge below, so the two can never disagree about
+   whether a repaint is owed. */
+function feedSignature(alerts, when) {
+  return alerts.map(z => z.id + z.level + (state.acked.has(z.id) ? '1' : '0')).join('|') + when;
+}
 
 function paintFeed(payload) {
   const alerts = payload.zones
@@ -1708,7 +2245,7 @@ function paintFeed(payload) {
   // Rebuild only when the feed's content actually changes. During a sweep
   // this fires a handful of times (as zones cross thresholds) instead of
   // ~300 times, which is what lets the entry transition survive.
-  const sig = alerts.map(z => z.id + z.level + (state.acked.has(z.id) ? '1' : '0')).join('|') + when;
+  const sig = feedSignature(alerts, when);
   if (sig === feedSig) return;
   const prevIds = feedIds;
   feedSig = sig;
@@ -1733,9 +2270,9 @@ function paintFeed(payload) {
     const pulse = pulsing.has(z.id);
     const isNew = !prevIds.has(z.id);
     return `
-      <article class="alert" data-pulse="${pulse}" data-enter="${isNew}" style="--pulse-delay:${i * 260}ms">
+      <article class="alert" data-enter="${isNew}" data-zone="${z.id}">
         <div class="alert-head">
-          <span class="alert-level" style="color:${L2.color}">${L2.imd}</span>
+          <span class="alert-level" data-pulse-id="${pulse ? z.id : ''}" style="color:${L2.ink}">${L2.imd}</span>
           <span class="alert-zone">${z.name}</span>
           <span class="alert-time num">${when}</span>
         </div>
@@ -1749,32 +2286,64 @@ function paintFeed(payload) {
       </article>`;
   }).join('');
 
-  // Release the entry transition on the next frame, staggered 30–80ms so
-  // entries cascade instead of all landing at once.
-  const entering = feed.querySelectorAll('.alert[data-enter="true"]');
-  requestAnimationFrame(() => {
-    entering.forEach((el, i) => {
-      el.style.transitionDelay = (i * 48) + 'ms';
-      el.dataset.enter = 'false';
-      setTimeout(() => { el.style.transitionDelay = ''; }, 260 + i * 48);
-    });
-  });
+  /* ---- entries land ------------------------------------------------
+     Which library animates this is a scope decision, not a preference.
+     Inside the sweep these are §2.4 item 3 — entries DROPPING into the
+     feed as zones cross thresholds — so GSAP's stagger sequences them,
+     48ms apart, inside the 30–80ms band. Outside the sweep an entry is
+     the result of a discrete action (a preset, a citizen report), so it
+     is Motion One's job and it springs in rather than drops.
+     ------------------------------------------------------------------ */
+  const entering = Array.from(feed.querySelectorAll('.alert[data-enter="true"]'));
+  entering.forEach(el => { el.dataset.enter = 'false'; });
 
+  if (entering.length) {
+    if (REDUCE.matches) {
+      // Opacity only. No movement, no stagger cascade.
+      mAnimate(entering, { opacity: [0, 1] }, { duration: 0.14 });
+    } else if (state.sweeping && HAS_GSAP) {
+      gsap.from(entering, {
+        y: -14, opacity: 0, duration: 0.3, ease: 'power3.out',
+        stagger: { each: 0.048 }, clearProps: 'transform,opacity'
+      });
+    } else if (HAS_MOTION) {
+      Motion.animate(entering,
+        { opacity: [0, 1], y: [-8, 0] },
+        { ...SPRING_SOFT, delay: Motion.stagger(0.048) });
+    }
+  }
+
+  wirePress(feed);
+  // Re-arm the acknowledge pulses against the nodes that now exist.
+  resetPulses();
+  pulsing.forEach(id => startPulse(feed.querySelector(`.alert-level[data-pulse-id="${id}"]`), id));
+
+  /* Acknowledging swaps ONE control in place. It used to rebuild the whole
+     feed, which threw focus to <body>, restarted every other entry's
+     transition, and — the reason this matters for motion — destroyed the
+     element the pulse was running on, so the pulse could only ever be
+     cancelled mid-dim rather than eased out. */
   feed.querySelectorAll('[data-ack]').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.ack;
       const zone = state.data.zones.find(x => x.id === id);
       state.acked.add(id);
+
+      stopPulse(id);          // eases back to full opacity from wherever it is
+
+      const done = document.createElement('span');
+      done.className = 'alert-acked';
+      done.textContent = "Acting on this";
+      done.tabIndex = -1;
+      btn.replaceWith(done);
+      done.focus();           // focus stays where the user left it
+      mAnimate(done, { opacity: [0, 1], scale: [0.96, 1] }, SPRING);
+
+      // Keep the cached signature honest so the next real change repaints.
+      feedSig = feedSignature(alerts, when);
       // Speak the human name — this used to read out the raw key, e.g.
       // "cbd underscore mgroad acknowledged".
       announce(`${zone ? zone.name : id} marked as seen. You're acting on this.`);
-      feedSig = '';           // force a rebuild so the acked state renders
-      paintFeed(state.data);
-      // The rebuild deletes the button that was just activated, dropping focus
-      // to <body>. Put it back where the user was.
-      const restored = document.querySelector(`.alert [data-ack]`) ||
-                       document.querySelector('.alert-acked');
-      if (restored) { restored.setAttribute('tabindex','-1'); restored.focus(); }
     });
   });
 }
@@ -1788,10 +2357,13 @@ function paintFeed(payload) {
    "Zone detail" panel, which ate a third of the rail and pushed the alert feed
    off screen entirely. */
 function selectZone(id) {
-  state.selectedZone = (state.selectedZone === id) ? null : id;
+  const prev = state.selectedZone;
+  state.selectedZone = (prev === id) ? null : id;
   zoneRowEls.forEach((row, rid) => row.setAttribute('aria-expanded', String(rid === state.selectedZone)));
-  zoneDetEls.forEach((det, rid) => { det.hidden = rid !== state.selectedZone; });
+  // Fill the newly opened row BEFORE animating, so the spring measures the
+  // real content height rather than an empty box.
   if (state.data) paintZoneDetail(state.data);
+  zoneDetEls.forEach((det, rid) => animateDisclosure(det, rid === state.selectedZone));
 }
 
 function paintZoneDetail(payload) {
@@ -1803,7 +2375,7 @@ function paintZoneDetail(payload) {
   if (!host || !z || !seed) return;
   const L2 = LEVELS[z.level];
   host.innerHTML = `
-    <p class="zd-level" style="color:${L2.color}">${L2.imd}: ${L2.what} ${L2.act}</p>
+    <p class="zd-level" style="color:${L2.ink}">${L2.imd}: ${L2.what} ${L2.act}</p>
     <div class="pop-grid">
       <span class="pop-k">Risk index</span><span class="pop-v num">${z.risk.toFixed(2)}</span>
       <span class="pop-k">Population <span class="pop-est">est.</span></span><span class="pop-v num">${z.population.toLocaleString('en-IN')}</span>
@@ -1861,9 +2433,9 @@ function buildStaticUI() {
       const L2 = LEVELS[k];
       return `
         <div class="legend-row">
-          <span class="legend-sw" style="background:${L2.color}"></span>
+          <span class="legend-sw" style="background:${L2.fill}"></span>
           <span>
-            <span class="legend-name" style="color:${L2.color}">${L2.imd}</span>
+            <span class="legend-name" style="color:${L2.ink}">${L2.imd}</span>
             <span class="legend-band"> ${L2.band}</span>
             <div class="legend-desc">${L2.what} ${L2.act}</div>
           </span>
@@ -1921,30 +2493,317 @@ function clearReports() {
 
 function announce(msg) { document.getElementById('live-region').textContent = msg; }
 
+/* ==================================================================
+   MOTION LAYER — Motion One (vendored, global `Motion`)
+
+   Scope discipline, enforced here and stated in vendor/NOTICE.md:
+   everything in this section is INTERACTIVE state — a person did
+   something and the interface has to answer. GSAP is not used here; it
+   owns the two-hour sweep and nothing else.
+
+   Two rules carried from DIRECTION.md §2.4 and pre-empting
+   emil-design-eng:
+     1. Springs, not duration-eased transitions, for anything a person
+        can touch. A spring has no fixed duration — it settles.
+     2. Every transition is interruptible and animates FROM THE CURRENT
+        VALUE. Motion's animate() reads the live computed value, so a
+        double-click reverses from wherever the element is instead of
+        snapping to zero and replaying.
+   ================================================================== */
+const REDUCE     = window.matchMedia('(prefers-reduced-motion: reduce)');
+const HAS_MOTION = typeof Motion !== 'undefined' && typeof Motion.animate === 'function';
+const HAS_GSAP   = typeof gsap   !== 'undefined' && typeof gsap.to === 'function';
+
+/* Apple's two-parameter spring vocabulary (damping ratio + response)
+   rather than mass/stiffness/damping — it is the one you can actually
+   reason about. bounce 0 is critically damped and is the default for
+   everything that is NOT carrying momentum from a gesture; overshoot on
+   a panel that merely opened reads as noise. UI chrome stays under the
+   300ms ceiling. */
+const SPRING      = { type: 'spring', bounce: 0,    duration: 0.28 };
+const SPRING_SOFT = { type: 'spring', bounce: 0.10, duration: 0.36 };
+
+/* prefers-reduced-motion drops MOVEMENT and SIZE, keeps opacity and
+   colour — §2.4 says values snap with opacity only, which is not the
+   same as killing all feedback. Every call below goes through here. */
+function mAnimate(el, keyframes, options) {
+  if (!HAS_MOTION || !el || (Array.isArray(el) && !el.length)) return null;
+  if (!REDUCE.matches) return Motion.animate(el, keyframes, options);
+  const flat = {};
+  for (const k of ['opacity', 'color', 'backgroundColor', 'borderColor']) {
+    if (k in keyframes) flat[k] = keyframes[k];
+  }
+  if (!Object.keys(flat).length) return null;
+  return Motion.animate(el, flat, { duration: 0.14 });
+}
+
+/* ---- press feedback -------------------------------------------------
+   The CSS :active rule is the floor — it fires with no JS at all. This
+   upgrades it: the release springs back rather than cutting, and because
+   it is a spring a rapid double-press retargets instead of restarting.
+   Emil's rule that pressable things confirm the press, done properly.
+   -------------------------------------------------------------------- */
+function wirePress(root) {
+  if (!HAS_MOTION || REDUCE.matches || typeof Motion.press !== 'function') return;
+  (root || document).querySelectorAll('button:not([data-nopress])').forEach(btn => {
+    if (btn.dataset.pressWired) return;
+    btn.dataset.pressWired = '1';
+    btn.style.willChange = 'transform';
+    Motion.press(btn, () => {
+      Motion.animate(btn, { scale: 0.97 }, { type: 'spring', bounce: 0, duration: 0.12 });
+      return () => Motion.animate(btn, { scale: 1 }, { type: 'spring', bounce: 0.22, duration: 0.34 });
+    });
+  });
+}
+
+/* ---- disclosure open / close ----------------------------------------
+   Motion One rather than a CSS transition because height has no natural
+   transition out of `hidden`, and because a spring retargets: hitting
+   the caret twice quickly reverses from the current height instead of
+   snapping shut and replaying.
+   -------------------------------------------------------------------- */
+function animateDisclosure(body, open) {
+  if (!HAS_MOTION || REDUCE.matches) { body.hidden = !open; return; }
+
+  /* A generation token, because `body.hidden` is NOT a usable source of
+     truth mid-animation: during a close the element is still visible, so
+     re-opening within those 220ms read it as "already open" and closed it
+     a second time. The token also stops a superseded close from firing its
+     completion handler and hiding a panel that is now opening. */
+  const gen = (body.__gen = (body.__gen || 0) + 1);
+  const current = () => gen === body.__gen;
+
+  if (body.__anim) body.__anim.stop();          // take over from where it is
+
+  if (open) {
+    const wasHidden = body.hidden;
+    body.hidden = false;
+    body.style.overflow = 'hidden';
+    if (wasHidden) { body.style.height = '0px'; body.style.opacity = '0'; }
+    body.__anim = Motion.animate(body, { height: body.scrollHeight + 'px', opacity: 1 }, SPRING_SOFT);
+    body.__anim.finished.then(() => {
+      if (!current()) return;
+      body.style.height = ''; body.style.overflow = ''; body.style.opacity = '';
+    }).catch(() => {});
+  } else {
+    body.style.overflow = 'hidden';
+    body.__anim = Motion.animate(body, { height: '0px', opacity: 0 },
+                                 { type: 'spring', bounce: 0, duration: 0.22 });
+    body.__anim.finished.then(() => {
+      if (!current()) return;
+      body.hidden = true;
+      body.style.height = ''; body.style.opacity = ''; body.style.overflow = '';
+    }).catch(() => {});
+  }
+}
+
+/* ---- the acknowledge pulse ------------------------------------------
+   An unhandled Warning pulses until someone marks it seen — the ATC
+   precedent in DIRECTION.md §1, an operational state made visible rather
+   than an animation added for delight.
+
+   It is here, and not in CSS, for one reason: STOPPING it well. A CSS
+   infinite keyframe can only be cancelled, which snaps the label to
+   whatever opacity the keyframe happened to be at — acknowledging an
+   alert mid-dim flashed. This eases back to full opacity from the
+   current value, which is the same interruptibility rule as everything
+   else in this section.
+   -------------------------------------------------------------------- */
+const pulseAnims = new Map();
+
+function startPulse(el, id) {
+  if (!HAS_MOTION || REDUCE.matches || pulseAnims.has(id) || !el) return;
+  pulseAnims.set(id, {
+    el,
+    anim: Motion.animate(el, { opacity: [1, 0.28, 1] },
+                         { duration: 1.5, repeat: Infinity, ease: 'easeInOut' })
+  });
+}
+
+function stopPulse(id) {
+  const rec = pulseAnims.get(id);
+  if (!rec) return;
+  pulseAnims.delete(id);
+  rec.anim.stop();
+  if (rec.el && rec.el.isConnected) Motion.animate(rec.el, { opacity: 1 }, SPRING);
+}
+
+/* The feed rebuilds its markup whenever its content genuinely changes,
+   which destroys every element a pulse was bound to. Drop them all and
+   re-arm against the new nodes. */
+function resetPulses() {
+  pulseAnims.forEach(rec => rec.anim.stop());
+  pulseAnims.clear();
+}
+
+/* ---- first paint ----------------------------------------------------
+   The panels arrive as objects settling onto the map rather than a page
+   that was simply there. It plays once, on load, and never again —
+   DIRECTION.md's own frequency rule: anything seen repeatedly gets less
+   animation, not more.
+   -------------------------------------------------------------------- */
+function introHUD() {
+  if (!HAS_MOTION || REDUCE.matches) return;
+  const panels = ['.strip', '.hero-card', '.rail-left', '.rail-right', '.scrub']
+    .map(s => document.querySelector(s)).filter(Boolean);
+  // Independent transform properties, not a `transform` shorthand string:
+  // Motion parses a 'none' keyframe in the shorthand as scale(0), which
+  // collapses every panel to a zero-size box.
+  Motion.animate(panels,
+    { opacity: [0, 1], y: [10, 0], scale: [0.995, 1] },
+    { type: 'spring', bounce: 0, duration: 0.5, delay: Motion.stagger(0.045) });
+}
+
+/* ==================================================================
+   THEME
+
+   The attribute is already set by the inline bootstrap in <head>, before
+   first paint. This half owns the CHANGE: persisting the choice, keeping
+   the control's label honest, and re-styling the parts of the map that are
+   drawn with resolved colours rather than CSS variables.
+
+   Everything else costs nothing to switch: level colours are applied as
+   var(--watch-ink) etc. rather than literals, so the ladder restyles with
+   the stylesheet and no re-render is needed.
+   ================================================================== */
+const THEME_KEY = 'jalnetra.theme';
+
+function syncThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  const light = currentTheme() === 'light';
+  btn.setAttribute('aria-pressed', String(light));
+  const label = light ? 'Switch to dark theme' : 'Switch to light theme';
+  btn.title = label;
+  const sr = document.getElementById('theme-label');
+  if (sr) sr.textContent = label;
+}
+
+function setTheme(name, persist) {
+  document.documentElement.dataset.theme = name;
+  if (persist) { try { localStorage.setItem(THEME_KEY, name); } catch (e) {} }
+  syncThemeToggle();
+  applyMapTheme();
+}
+
+function initTheme() {
+  syncThemeToggle();
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.addEventListener('click', () => {
+    const next = currentTheme() === 'light' ? 'dark' : 'light';
+    setTheme(next, true);
+    announce(next === 'light' ? 'Light theme.' : 'Dark theme.');
+  });
+  /* Follow the OS only while the user has made no explicit choice —
+     overriding a deliberate selection because the system clock rolled over
+     is exactly the kind of thing that makes a console feel untrustworthy. */
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  const onOS = e => {
+    let stored = null;
+    try { stored = localStorage.getItem(THEME_KEY); } catch (err) {}
+    if (stored === 'light' || stored === 'dark') return;
+    setTheme(e.matches ? 'light' : 'dark', false);
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onOS);
+  else if (mq.addListener) mq.addListener(onOS);
+}
+
 function wireDisclosure(btnId, bodyId) {
   const btn = document.getElementById(btnId), body = document.getElementById(bodyId);
   btn.addEventListener('click', () => {
-    const open = body.hidden;
-    body.hidden = !open;
+    // aria-expanded is set synchronously, so it stays truthful while the
+    // panel is still animating. body.hidden does not.
+    const open = btn.getAttribute('aria-expanded') !== 'true';
     btn.setAttribute('aria-expanded', String(open));
+    animateDisclosure(body, open);
   });
 }
 
 /* ==================================================================
-   THE TWO-HOUR SWEEP — the signature moment.
+   THE TWO-HOUR SWEEP — the signature moment. DIRECTION.md §2.4.
 
-   Driven by requestAnimationFrame over a continuous horizon value, not a
-   setTimeout step loop, so the zone fills interpolate rather than jump.
-   Fully interruptible: grabbing the scrubber or pressing STOP cancels it
-   from wherever it is, and the CSS transitions take back over.
+   THIS IS THE ONLY PLACE GSAP IS USED. Its job here is sequencing, which
+   is the one thing it is genuinely better at than a hand-rolled loop:
+   one tween drives the horizon clock, the feed drops use its stagger
+   utility, and each threshold crossing fires a one-shot ring tween. It
+   is not used for any other motion in the product — see vendor/NOTICE.md.
 
-   The horizon advances LINEARLY. Easing the clock would mean most of the
-   two hours elapses in the first instant, which is semantically wrong —
-   the drama comes from thresholds being crossed, not from the curve.
+   The horizon advances LINEARLY. Easing the clock would put most of the
+   two hours in the first instant, which is semantically wrong: the drama
+   comes from thresholds being crossed, not from the curve.
+
+   Fully interruptible — grabbing the scrubber or pressing Stop kills the
+   tween where it stands and the CSS transitions take back over.
+
+   The sweep is longer than the 300ms chrome ceiling on purpose. It is
+   CONTENT, not chrome: six seconds of forecast, not a panel opening.
    ================================================================== */
 const SWEEP_MS = 5200;
-const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)');
-let sweepRAF = null;
+let sweepTween = null;
+
+/* Ranked so a crossing can be detected as a change in DIRECTION, not
+   merely a change in value. Contract ids, unchanged. */
+const LEVEL_RANK = { safe: 0, watch: 1, high: 2, severe: 3 };
+let sweepPrevLevels = new Map();
+
+/* ---- pulse rings ----------------------------------------------------
+   §2.4 item 3: as a zone crosses into Alert or Warning it emits ONE ring
+   and then stops. Continuous pulsing is reserved for unacknowledged
+   Warnings in the feed — a ring here means "this just changed", not
+   "this is bad", and the two must not be confused.
+
+   Crossing back DOWN emits nothing. The ring is an escalation signal.
+
+   The layer lives in Leaflet's own overlay pane, so rings are positioned
+   in layer coordinates and pan with the map instead of detaching from
+   the zone they belong to.
+   -------------------------------------------------------------------- */
+let ringLayer = null;
+
+function ensureRingLayer() {
+  if (ringLayer || !mapOK || !map) return ringLayer;
+  ringLayer = L.DomUtil.create('div', 'ring-layer', map.getPanes().overlayPane);
+  return ringLayer;
+}
+
+function emitPulseRing(z) {
+  // §2.4: reduced motion means no pulse at all, not a slower one.
+  if (!HAS_GSAP || REDUCE.matches || !mapOK) return;
+  const layer = ensureRingLayer();
+  if (!layer) return;
+  const pt = map.latLngToLayerPoint([z.lat, z.lng]);
+  const circle = zoneLayers.get(z.id);
+  // Match the zone's own painted radius so the ring reads as coming OUT
+  // of that zone rather than being a decoration dropped near it.
+  const r = (circle && circle._radius) ? circle._radius : 34;
+  const ring = document.createElement('div');
+  ring.className = 'pulse-ring';
+  ring.style.cssText =
+    `left:${pt.x}px; top:${pt.y}px; width:${r * 2}px; height:${r * 2}px;` +
+    `margin:${-r}px 0 0 ${-r}px; border-color:${levelFill(z.level)};`;
+  layer.appendChild(ring);
+  gsap.fromTo(ring,
+    { scale: 0.6, opacity: 0.9 },
+    { scale: 2.15, opacity: 0, duration: 1.15, ease: 'power2.out',
+      onComplete: () => ring.remove() });
+}
+
+function clearRings() {
+  if (ringLayer) ringLayer.textContent = '';
+}
+
+/* Called from renderAt on every swept frame. */
+function checkCrossings(payload) {
+  if (!state.sweeping) return;
+  payload.zones.forEach(z => {
+    const prev = sweepPrevLevels.get(z.id);
+    sweepPrevLevels.set(z.id, z.level);
+    if (prev === undefined) return;
+    if (LEVEL_RANK[z.level] > LEVEL_RANK[prev] && LEVEL_RANK[z.level] >= LEVEL_RANK.high) {
+      emitPulseRing(z);
+    }
+  });
+}
 
 function updateRunButton() {
   const btn = document.getElementById('btn-run');
@@ -1954,7 +2813,8 @@ function updateRunButton() {
 }
 
 function stopSweep() {
-  if (sweepRAF) { cancelAnimationFrame(sweepRAF); sweepRAF = null; }
+  if (sweepTween) { sweepTween.kill(); sweepTween = null; }
+  clearRings();
   if (!state.sweeping) return;
   state.sweeping = false;
   document.body.classList.remove('sweeping');
@@ -1992,43 +2852,58 @@ function refreshSweepCta(payload) {
   showSweepCta(zones.slice().sort((a, b) => b.depthCm - a.depthCm)[0]);
 }
 
+function settleSweep(announcePrefix) {
+  setHorizon(120);                       // settle exactly on a contract value
+  const n = state.data.zones.filter(z => z.level === 'severe').length;
+  const worst = state.data.zones.slice().sort((a, b) => b.depthCm - a.depthCm)[0];
+  announce(`${announcePrefix} Plus 120 minutes. ${n} zone${n === 1 ? '' : 's'} at Warning. ` +
+           `Deepest ${worst.name}, ${Math.round(worst.depthCm)} centimetres.`);
+  showSweepCta(worst);
+}
+
 function startSweep() {
   hideSweepCta();
   if (state.sweeping) { stopSweep(); return; }
 
-  // Reduced motion: land on the result, skip the movement entirely.
-  if (REDUCE.matches) {
-    setHorizon(120);
-    announce('Horizon set to plus 120 minutes.');
+  /* §2.4: reduced motion means the values SNAP — opacity only, no
+     movement, no pulse. The result is identical, only the journey is
+     removed, so a reduced-motion user is never told less than anyone
+     else. Same settle, same announcement, same street-level handoff. */
+  if (REDUCE.matches || !HAS_GSAP) {
+    settleSweep('Horizon set to plus 120 minutes.');
     return;
   }
 
   const from = state.horizon >= 119.5 ? 0 : state.horizon;
-  const dur = SWEEP_MS * (120 - from) / 120;
-  if (dur < 60) { setHorizon(120); return; }
+  const dur  = (SWEEP_MS / 1000) * (120 - from) / 120;
+  if (dur < 0.06) { settleSweep('Sweep complete.'); return; }
 
   state.sweeping = true;
   document.body.classList.add('sweeping');
   updateRunButton();
 
-  const t0 = performance.now();
-  const step = now => {
-    if (!state.sweeping) return;
-    const p = Math.min(1, (now - t0) / dur);
-    renderAt(from + (120 - from) * p);
-    if (p < 1) {
-      sweepRAF = requestAnimationFrame(step);
-    } else {
+  // Baseline for crossing detection: whatever is on screen right now, so
+  // starting a sweep from +60 does not re-fire rings for zones that were
+  // already in Alert before the user pressed Run.
+  sweepPrevLevels = new Map(state.data.zones.map(z => [z.id, z.level]));
+  clearRings();
+
+  /* One tween over a plain object. Everything else in the signature
+     moment — the travelling light-line, the continuous fill and opacity
+     interpolation, the counters, the feed drops, the rings — hangs off
+     this single clock, which is why they cannot drift out of step. */
+  const clock = { t: from };
+  sweepTween = gsap.to(clock, {
+    t: 120,
+    duration: dur,
+    ease: 'none',
+    onUpdate: () => renderAt(clock.t),
+    onComplete: () => {
+      sweepTween = null;
       stopSweep();
-      setHorizon(120);        // settle exactly on a contract value
-      const n = state.data.zones.filter(z => z.level === 'severe').length;
-      const worst = state.data.zones.slice().sort((a, b) => b.depthCm - a.depthCm)[0];
-      announce(`Sweep complete. Plus 120 minutes. ${n} zone${n === 1 ? '' : 's'} at Warning. ` +
-               `Deepest ${worst.name}, ${Math.round(worst.depthCm)} centimetres.`);
-      showSweepCta(worst);
+      settleSweep('Sweep complete.');
     }
-  };
-  sweepRAF = requestAnimationFrame(step);
+  });
 }
 
 /* ==================================================================
@@ -2045,6 +2920,11 @@ function startSweep() {
    ================================================================== */
 const Diorama = (() => {
   let renderer, scene, camera, water, waterGeo, rain, ready = false, raf = null;
+  /* Theme-dependent pieces are held at module scope: the scene is built ONCE
+     but the console's theme can change between two openings, and a figure
+     still wearing the other theme's brass is the kind of drift the shared
+     token file exists to prevent. themeScene() re-reads them on every open. */
+  let humanMat = null, humanLt = null, figLight = null, rimLight = null;
   let curDepth = 0, targetDepth = 0, t0 = 0, lastFocus = null, zoneId = null;
   let camIn = 1;   // 0..1 camera arrival ease
 
@@ -2071,7 +2951,7 @@ const Diorama = (() => {
          road      WARM asphalt     #33302E  (brown-grey, deliberately not blue)
          kerb      warm concrete    #4A4640
          water     vivid, level-coloured, the most saturated thing on screen
-         figure    violet, emissive — human, per the console's colour doctrine */
+         figure    brass, emissive — human, per the console's colour doctrine */
     scene.background = new THREE.Color(0x131C33);
     scene.fog = new THREE.Fog(0x131C33, 34, 130);
 
@@ -2087,9 +2967,10 @@ const Diorama = (() => {
     const key = new THREE.DirectionalLight(0xF2F8FF, 1.45);
     key.position.set(9, 16, 7);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0x2E8CA6, 0.55);
-    rim.position.set(-11, 7, -16);
-    scene.add(rim);
+    // Backwater rim, from the canal token — was the old canal blue #2E8CA6.
+    rimLight = new THREE.DirectionalLight(new THREE.Color(cssColor('canal')), 0.55);
+    rimLight.position.set(-11, 7, -16);
+    scene.add(rimLight);
 
     // Ground = warm concrete pavement. Warm against the cool buildings is the
     // relationship that makes the reference images readable.
@@ -2200,7 +3081,10 @@ const Diorama = (() => {
           for (let r = 0; r < rows; r++) {
             const lit = new THREE.Mesh(
               new THREE.PlaneGeometry(w * (0.42 + rnd() * 0.3), 0.5),
-              new THREE.MeshBasicMaterial({ color: 0xFFC93C, transparent: true,
+              // Warm interior light, NOT #FFC93C — that is IMD Watch, and the
+              // ladder is reserved for AI-produced risk values. A lit window
+              // is not a warning.
+              new THREE.MeshBasicMaterial({ color: 0xFFD9A0, transparent: true,
                                             opacity: 0.22 + rnd() * 0.34 }));
             lit.position.set(side * (7 + setback + 0.02), 3 + r * (h / (rows + 1.1)) + 1.4, z - d / 2);
             lit.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -2243,7 +3127,7 @@ const Diorama = (() => {
     }
 
     /* HUMAN FIGURE — the scale reference the entire scene exists for, so it
-       gets the most care. Violet and emissive: doctrinally it is the person the
+       gets the most care. Brass and emissive: doctrinally it is the person the
        forecast exists to protect (human, not model output), and practically it
        is the only thing guaranteed to separate from every other surface.
 
@@ -2251,10 +3135,20 @@ const Diorama = (() => {
        read as a person rather than a snowman. 1.72 m total.
        r128 has no CapsuleGeometry — cylinders and spheres only. */
     const HEAD_R = 0.115;
-    const violet   = new THREE.MeshStandardMaterial({
-      color: 0xC77DFF, emissive: 0x4A1F78, emissiveIntensity: 0.35, roughness: 0.6 });
-    const violetLt = new THREE.MeshStandardMaterial({
-      color: 0xE0BBFF, emissive: 0x5A2A90, emissiveIntensity: 0.3, roughness: 0.6 });
+    /* The figure is the only HUMAN thing in the scene, so it carries the
+       human colour — brass now, not violet. Read from the token rather
+       than written as a literal, so it cannot drift from the console and
+       so it follows the theme. Lit/shade variants are derived from the one
+       token instead of being two more hand-picked values. */
+    const brassBase = new THREE.Color(cssColor('human'));
+    humanMat = new THREE.MeshStandardMaterial({
+      color: brassBase.clone(),
+      emissive: brassBase.clone().multiplyScalar(0.34),
+      emissiveIntensity: 0.35, roughness: 0.6 });
+    humanLt = new THREE.MeshStandardMaterial({
+      color: brassBase.clone().lerp(new THREE.Color(0xFFFFFF), 0.34),
+      emissive: brassBase.clone().multiplyScalar(0.4),
+      emissiveIntensity: 0.3, roughness: 0.6 });
 
     const fig = new THREE.Group();
     const limb = (rTop, rBot, len, mat) =>
@@ -2262,34 +3156,34 @@ const Diorama = (() => {
 
     // legs, slightly apart and tapered ankle-ward
     for (const dx of [-0.095, 0.095]) {
-      const leg = limb(0.082, 0.055, 0.84, violet);
+      const leg = limb(0.082, 0.055, 0.84, humanMat);
       leg.position.set(dx, 0.42, 0);
       fig.add(leg);
-      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 8), violet);
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 8), humanMat);
       foot.scale.set(1, 0.6, 1.5); foot.position.set(dx, 0.05, 0.045);
       fig.add(foot);
     }
     // hips -> chest, tapered so the silhouette has a waist
-    const torso = limb(0.135, 0.10, 0.60, violet);
+    const torso = limb(0.135, 0.10, 0.60, humanMat);
     torso.position.y = 1.14; fig.add(torso);
     // shoulders as a spanning bar, which is what reads as "person" at distance
-    const shoulders = limb(0.058, 0.058, 0.34, violet);
+    const shoulders = limb(0.058, 0.058, 0.34, humanMat);
     shoulders.rotation.z = Math.PI / 2; shoulders.position.y = 1.42; fig.add(shoulders);
     // arms hanging with a slight outward angle
     for (const dx of [-0.225, 0.225]) {
-      const arm = limb(0.05, 0.038, 0.62, violet);
+      const arm = limb(0.05, 0.038, 0.62, humanMat);
       arm.position.set(dx, 1.11, 0.01);
       arm.rotation.z = dx < 0 ? 0.16 : -0.16;
       fig.add(arm);
     }
     // neck + head, lighter so the face-end is the brightest point
-    const neck = limb(0.045, 0.045, 0.10, violet);
+    const neck = limb(0.045, 0.045, 0.10, humanMat);
     neck.position.y = 1.545; fig.add(neck);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R, 18, 14), violetLt);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R, 18, 14), humanLt);
     head.scale.set(0.9, 1.08, 0.94); head.position.y = 1.665; fig.add(head);
 
     // Its own light, so it never disappears into fog or a dark facade
-    const figLight = new THREE.PointLight(0xB26BFF, 0.5, 7);
+    figLight = new THREE.PointLight(new THREE.Color(cssColor('human')), 0.5, 7);
     figLight.position.set(0, 1.2, 0.6); fig.add(figLight);
 
     // Close to camera (z=15) and off the centre line so the water reads past it
@@ -2354,6 +3248,23 @@ const Diorama = (() => {
     raf = requestAnimationFrame(frame);
   }
 
+  /* Re-read the two tokens the scene borrows from the console. Cheap —
+     four colour writes — and it runs once per open, not per frame. */
+  function themeScene() {
+    if (!ready) return;
+    const brass = new THREE.Color(cssColor('human'));
+    if (humanMat) {
+      humanMat.color.copy(brass);
+      humanMat.emissive.copy(brass).multiplyScalar(0.34);
+    }
+    if (humanLt) {
+      humanLt.color.copy(brass).lerp(new THREE.Color(0xFFFFFF), 0.34);
+      humanLt.emissive.copy(brass).multiplyScalar(0.4);
+    }
+    if (figLight) figLight.color.copy(brass);
+    if (rimLight) rimLight.color.set(cssColor('canal'));
+  }
+
   function open(id) {
     const z = state.data && state.data.zones.find(x => x.id === id);
     const seed = ZONES.find(s => s.id === id);
@@ -2396,23 +3307,25 @@ const Diorama = (() => {
     const stale = modal.querySelector('.dio-fallback');
     if (stale) stale.remove();
 
+    themeScene();
+
     const L2 = LEVELS[z.level];
     targetDepth = z.depthCm / 100;
     curDepth = 0;
     // Water reads as water first, warning second: a deep blue base pulled only
     // 35% toward the level colour. A fully level-coloured plane rendered as a
     // flat red floor, which looked like lava, not flood water.
-    water.material.color.set(0x1E5C7A).lerp(new THREE.Color(L2.color), 0.16);
+    water.material.color.set(0x1E5C7A).lerp(new THREE.Color(levelFill(z.level)), 0.16);
     // The warning reads in the AIR, not the water: tinting the fog keeps the
     // water looking like water while the whole scene still carries the level.
-    scene.fog.color.set(0x131C33).lerp(new THREE.Color(L2.color), 0.14);
-    scene.background.set(0x131C33).lerp(new THREE.Color(L2.color), 0.10);
+    scene.fog.color.set(0x131C33).lerp(new THREE.Color(levelFill(z.level)), 0.14);
+    scene.background.set(0x131C33).lerp(new THREE.Color(levelFill(z.level)), 0.10);
 
     document.getElementById('dio-name').textContent = z.name;
     document.getElementById('dio-name-ml').textContent = seed.ml;
     const lv = document.getElementById('dio-level');
     lv.textContent = L2.imd + ': ' + L2.what;
-    lv.style.color = L2.color;
+    lv.style.color = L2.ink;
 
     const off = Math.round(state.horizon);
     document.getElementById('dio-meta').innerHTML =
@@ -2473,7 +3386,7 @@ const Diorama = (() => {
     ['map', 'map-notice'].forEach(id => {
       const el = document.getElementById(id); if (el) el.inert = on;
     });
-    document.querySelectorAll('.hud, .map-grade').forEach(el => { el.inert = on; });
+    document.querySelectorAll('.hud, #map, .map-grade').forEach(el => { el.inert = on; });
   }
 
   function trapTab(e) {
@@ -2533,6 +3446,10 @@ syncRainReadout();
 updateRunButton();
 wireDisclosure('legend-btn', 'legend-body');
 wireDisclosure('prov-btn', 'prov-body');
+// Same helper, same spring, same collapsed-by-default behaviour — the two
+// new panels are not a new interaction, they join the existing one.
+wireDisclosure('nb-btn', 'nb-body');
+wireDisclosure('drain-btn', 'drain-body');
 
 /* The slider fires many input events per drag. Reading it straight through to
    render() rebuilt all five contract frames on every one. Coalescing to one
@@ -2578,7 +3495,30 @@ document.addEventListener('keydown', e => {
   if (state.reportMode) setReportMode(false);
 });
 
-render();
+/* The scrubber is pinned on mobile and its height depends on how its
+   controls wrap, which depends on the viewport. Measure it rather than
+   guessing: a hardcoded reserve was covering the hero card at 430px. */
+(function trackScrubHeight() {
+  const el = document.querySelector('.scrub');
+  if (!el) return;
+  const apply = () => document.documentElement.style
+    .setProperty('--scrub-h', Math.ceil(el.getBoundingClientRect().height) + 'px');
+  apply();
+  if ('ResizeObserver' in window) new ResizeObserver(apply).observe(el);
+  else window.addEventListener('resize', apply);
+})();
+
+/* Press feedback on everything pressable, and once more after the zone
+   rows and presets are built. Buttons created later (the acknowledge
+   controls) are wired when the feed paints. */
+wirePress();
+initTheme();
+applyMapTheme();
+
+render().then(() => {
+  wirePress();
+  introHUD();
+});
 </script>
 </body>
 </html>

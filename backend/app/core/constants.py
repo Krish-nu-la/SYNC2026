@@ -28,10 +28,15 @@ MAX_DEPTH = 100
 
 # A nowcast is issued into weather that is ALREADY HAPPENING. "+0 min" must
 # therefore mean "this is what is on the ground now", not "rain begins this
-# instant". 0.75 h of antecedent rainfall is what puts standing water on the
-# map at the resting position. It scales with rainfall, so 0 mm/hr still
-# reads 0 cm — dry is dry.
-ANTECEDENT_HOURS = 0.75
+# instant". It scales with rainfall, so 0 mm/hr still reads 0 cm — dry is dry.
+#
+# Recalibrated 0.75 -> 1.75 h. At 0.75 h, "Now" read 4.8 cm at Heavy and
+# 13.1 cm at Cloudburst — a street with essentially nothing on it, which
+# contradicts DIRECTION.md item 17 ("a nowcast issued during a cloudburst
+# must show water already on the street"). At 1.75 h, Now reads 11.4 cm
+# (Watch) at Heavy and 28.0 cm (Alert) at Cloudburst: rain that has plainly
+# been falling for a while, which is what item 17 asks for.
+ANTECEDENT_HOURS = 1.75
 
 # mm of rain a soil column absorbs before it stops absorbing. Clay saturates
 # fastest and so floods soonest; sand keeps taking water for longer.
@@ -56,7 +61,18 @@ LAND_COVER_RUNOFF = {
 # Single calibration constant converting net ponded volume to street depth.
 # Tuned so that Heavy (62 mm/hr) leaves headroom and Cloudburst (120 mm/hr)
 # drives the worst zones past the 50 cm Warning threshold.
-DEPTH_GAIN = 1.43
+#
+# Retuned 1.43 -> 1.03 as the counterweight to ANTECEDENT_HOURS above, and
+# for no other reason. Raising the antecedent lifts the WHOLE curve, tail
+# included: at 1.75 h with the old gain, Cloudburst +120 put 13 of 16 zones
+# into Warning instead of three — the "city either goes entirely red or
+# entirely dry" failure item 16 describes, and a direct breach of §2.1's
+# saturation discipline. Scaling the gain back restores item 14's
+# calibration exactly (Heavy +120: zero Warning zones; Cloudburst +120:
+# three) while keeping the higher resting level. This constant's stated job
+# is precisely this trade, so retuning it here is its purpose, not a
+# workaround.
+DEPTH_GAIN = 1.03
 
 # How far the trained model is allowed to move the physics estimate, as a
 # fraction. The model carries real weight — it is what makes the rainfall

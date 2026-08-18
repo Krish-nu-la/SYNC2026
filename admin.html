@@ -7,6 +7,24 @@
 <meta name="description" content="Zone configuration and model status for the JalNetra flood nowcast.">
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="vendor/tokens.css">
+
+<script>
+/* Theme resolved BEFORE first paint so the page never flashes the wrong
+   ground. Order of authority: the user's explicit choice, then the OS
+   preference, then dark (the design default). Inline and tiny on purpose —
+   an external or deferred script would paint first, which is the whole
+   problem it exists to avoid. The key is shared by all three pages, so a
+   choice made in the console carries to admin and login. */
+(function () {
+  try {
+    var t = localStorage.getItem('jalnetra.theme');
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.dataset.theme = t;
+  } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+})();
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; background: var(--ink); color: var(--text);

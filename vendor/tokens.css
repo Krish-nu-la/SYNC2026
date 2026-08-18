@@ -1,35 +1,187 @@
 /* JalNetra shared design tokens — DIRECTION.md §2.1 / §2.2.
    Linked by index.html, login.html and admin.html so the three surfaces
-   cannot drift apart. Values here are the single source of truth. */
+   cannot drift apart. This file is the single source of truth: no page
+   redefines a token locally.
+
+   ── The palette's LOGIC is unchanged ────────────────────────────────
+   1. The IMD ladder is reserved for AI-produced risk values, and Watch /
+      Alert / Warning keep IMD's actual colours in BOTH themes, because
+      matching the national warning vocabulary is the product's core
+      positioning claim, not a design choice we get to make.
+   2. Exactly one hue, outside the ladder, is reserved for human action.
+   3. Saturation scarcity: Warning red stays rare, so it means something.
+
+   ── What changed (2026-08-19) ───────────────────────────────────────
+   The base / safe / human hues were blue-black, cyan-teal and violet:
+   the default palette of every AI product shipping right now. They said
+   nothing about Kochi. The replacements are drawn from the place the
+   forecast is actually about — backwater water, monsoon dark, and the
+   brass of old Kerala fittings and signage.
+
+   Every dark neutral is generated on ONE axis (CIE Lab hue 130,
+   backwater-olive) so nothing is a leftover blue-grey; every light
+   neutral on Lab hue 95 (whitewash warm). Values are computed, not
+   eyeballed — see the measurement notes in DIRECTION.md §2.1.
+   ------------------------------------------------------------------- */
 
 :root {
-  --ink:        #080D14;
-  --surface:    #101A24;
-  --surface-2:  #16232F;
-  --hairline:   #22323F;
-  --hairline-2: #2E4252;
+  /* ---------- DARK — "backwater at night" (default) ---------- */
 
-  --safe:       #17E0CC;
+  /* Neutrals: Lab hue 130. Wet ground and monsoon dark, not sci-fi console. */
+  --ink:        #0C0F08;   /* L* 4  — deep green-black, never #000        */
+  --surface:    #1B1E19;   /* L* 11 — panels floating on the map          */
+  --surface-2:  #232720;   /* L* 15 — recessed rows, zone detail          */
+  --hairline:   #30342C;   /* L* 21 — borders                             */
+  --hairline-2: #41463D;   /* L* 29 — the stronger tier                   */
+  --muted:      #9BA394;   /* L* 66 — 7.41:1 on ink                       */
+  --text:       #EDF2E9;   /* L* 95 — 16.99:1 on ink                      */
+
+  /* Still canal water at night: murky, olive-toned, deliberately not a
+     bright UI teal. Reads calm without reading "go". */
+  --safe:       #73A07E;
+
+  /* IMD's ladder. Fixed. Not ours to restyle. */
   --watch:      #FFC93C;
   --alert:      #FF7A1A;
   --warning:    #FF2E4D;
 
-  --text:       #EAF2F8;
-  --muted:      #93A5B3;
-  --human:      #B26BFF;
+  /* Ladder INK = the same colour when set as text. In dark mode the fill
+     colour is already legible, so the two are identical and the IMD
+     colours appear on screen exactly as IMD publishes them. */
+  --watch-ink:   var(--watch);
+  --alert-ink:   var(--alert);
+  --warning-ink: var(--warning);
 
-  --canal:      #2E8CA6;
+  /* HUMAN ACTION — aged temple brass. One hue, outside the ladder,
+     exclusive to the citizen's pin and the dispatcher's acknowledgement.
+     Deliberately unpolished and olive-leaning: that is what pushes it
+     clear of IMD yellow, which is the constraint that matters most. */
+  --human:      #A18853;
 
+  /* Backwater channel, a shade below the safe green so the canal reads as
+     beneath the zones rather than competing with them. */
+  --canal:      #497665;
+
+  /* Compositing helpers — panels are translucent over the map, and the
+     map vignette has to be made of the current ground colour. */
+  --panel-bg:     rgba(27, 30, 25, .94);
+  --panel-solid:  #1B1E19;
+  --ground-rgb:   12, 15, 8;
+  --shadow-rgb:   0, 0, 0;
+  --edge-light:   rgba(237, 242, 233, .07);
+  --edge-light-2: rgba(237, 242, 233, .10);
+  --map-filter:   none;
+
+  /* ---------- TYPE ---------- */
   --ff-display: 'Archivo', system-ui, sans-serif;
   --ff-ui:      'IBM Plex Sans', 'Noto Sans Malayalam', system-ui, sans-serif;
   --ff-mono:    'IBM Plex Mono', ui-monospace, monospace;
 
   --ease-out:   cubic-bezier(0.23, 1, 0.32, 1);
-  --panel-shadow: 0 18px 44px rgba(0,0,0,.62);
+
+  /* ---------- ELEVATION ----------
+     Four stacked parts per level: an inset top hairline (light catching
+     the material's edge), a 1px ring (the "real edge" §2.3 asks for), a
+     tight contact shadow, and wide ambient shadows. Colour comes from
+     --shadow-rgb so light mode can soften the whole stack at once
+     without redefining its structure. */
+  --elev-1:
+    inset 0 1px 0 var(--edge-light),
+    0 0 0 1px rgba(48, 52, 44, .85),
+    0 2px 4px rgba(var(--shadow-rgb), .45),
+    0 12px 28px -10px rgba(var(--shadow-rgb), .62),
+    0 36px 72px -28px rgba(var(--shadow-rgb), .85);
+  --elev-3:
+    inset 0 1px 0 var(--edge-light),
+    0 0 0 1px rgba(65, 70, 61, .9),
+    0 -2px 8px rgba(var(--shadow-rgb), .42),
+    0 -18px 48px -12px rgba(var(--shadow-rgb), .7),
+    0 20px 56px -22px rgba(var(--shadow-rgb), .9);
+  /* Row-scale elevation — the same language as the panels, one step down,
+     for zone rows that lift on hover. */
+  --elev-row:
+    0 1px 2px rgba(var(--shadow-rgb), .4),
+    0 6px 16px -6px rgba(var(--shadow-rgb), .55);
+
+  --panel-shadow: 0 18px 44px rgba(var(--shadow-rgb), .62);
+  --r: 4px;
+  --rail-l: 244px;
+  --rail-r: 356px;
+  --gap: 16px;
+}
+
+/* ================= LIGHT — "whitewash and monsoon light" =================
+   Designed against the light ground, NOT inverted from dark: a literal
+   inversion puts mid-tones where they have no contrast and flattens the
+   hierarchy. Every state colour below was re-derived and re-measured.
+   ======================================================================= */
+:root[data-theme="light"] {
+  /* Neutrals: Lab hue 95. Old Kerala house whitewash — warm lime render,
+     never clinical SaaS white. */
+  --ink:        #F7F3EB;   /* page ground                                  */
+  --surface:    #FFFEFA;   /* panels sit ABOVE the ground, so they lift    */
+  --surface-2:  #EEEBE1;   /* recessed rows                                */
+  --hairline:   #D7D4C9;
+  --hairline-2: #B8B6AA;
+  --muted:      #666A5C;   /* 5.50:1 on surface                            */
+  --text:       #292D25;   /* 13.91:1 on surface                           */
+
+  /* Backwater green, taken down to daylight depth rather than lightened. */
+  --safe:       #386B47;   /* 6.19:1 on surface                            */
+
+  /* IMD ladder fills are IDENTICAL to dark mode — a swatch, a map fill or
+     a zone bar is the published IMD colour in both themes. */
+  --watch:      #FFC93C;
+  --alert:      #FF7A1A;
+  --warning:    #FF2E4D;
+
+  /* Ladder INK is where light mode has to differ: #FFC93C as small text on
+     whitewash is 1.4:1 and simply unreadable. These keep IMD's hue AND its
+     lightness ORDER (Watch lightest, Warning darkest) so the ramp still
+     reads as a ramp — flattening them to one lightness collapsed their
+     separation under colour-vision deficiency to nearly nothing. */
+  --watch-ink:   #906900;  /* 4.95:1 */
+  --alert-ink:   #8C3902;  /* 7.70:1 */
+  --warning-ink: #7D2A2D;  /* 9.29:1 */
+
+  /* Human action: the same aged brass, taken to daylight depth. Kept near
+     the dark theme's hue so the human system reads as one colour across
+     both themes. */
+  --human:      #82693E;   /* 5.15:1 on surface */
+
+  --canal:      #2F7D74;
+
+  --panel-bg:     rgba(255, 254, 250, .92);
+  --panel-solid:  #FFFEFA;
+  --ground-rgb:   247, 243, 235;
+  --shadow-rgb:   58, 54, 40;      /* warm shadow, never neutral grey */
+  --edge-light:   rgba(255, 255, 255, .9);
+  --edge-light-2: rgba(255, 255, 255, 1);
+
+  /* Light mode needs a much gentler stack: the same shadow values that
+     read as depth on near-black read as dirt on whitewash. */
+  --elev-1:
+    inset 0 1px 0 var(--edge-light),
+    0 0 0 1px rgba(184, 182, 170, .8),
+    0 1px 2px rgba(var(--shadow-rgb), .10),
+    0 8px 20px -8px rgba(var(--shadow-rgb), .16),
+    0 28px 56px -26px rgba(var(--shadow-rgb), .22);
+  --elev-3:
+    inset 0 1px 0 var(--edge-light),
+    0 0 0 1px rgba(184, 182, 170, .85),
+    0 -1px 4px rgba(var(--shadow-rgb), .08),
+    0 -12px 34px -12px rgba(var(--shadow-rgb), .16),
+    0 16px 40px -22px rgba(var(--shadow-rgb), .2);
+  --elev-row:
+    0 1px 2px rgba(var(--shadow-rgb), .12),
+    0 6px 16px -6px rgba(var(--shadow-rgb), .18);
+  --panel-shadow: 0 18px 44px rgba(var(--shadow-rgb), .2);
 }
 
 .num { font-family: var(--ff-mono); font-variant-numeric: tabular-nums; }
 
+/* Focus is a human action, so it carries the human colour — and it is the
+   one place that colour appears without a deliberate press. */
 :focus-visible { outline: 2px solid var(--human); outline-offset: 2px; border-radius: 2px; }
 
 .visually-hidden {
